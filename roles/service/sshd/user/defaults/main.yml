@@ -1,0 +1,8 @@
+---
+sshd_allow_group: ssh
+
+sshd_user:
+  name: myuser
+  home: /home/myuser
+  authorized_key_names:
+    - myuser

@@ -1,0 +1,48 @@
+---
+- name: >
+    user
+    : Lookups and defaults
+  set_fact:
+    _name: "{{ USER.name | default('myuser') }}"
+    _home: "{{ USER.home | default('/home/' + ( USER.name | default('myuser') )) }}"
+    _authorized_keys: |
+        {% for key_name in USER.authorized_key_names | default([])
+        %}{{ lookup('file',
+            (ansible_config_file | dirname)
+            + '/private/ssh-keys/'
+            + key_name
+            + '/public'
+        ) }}
+        {% endfor %}
+
+- name: >
+    user: {{ _name }}
+    : Directories
+  file:
+    path: "{{ _home }}/.ssh"
+    state: directory
+    owner: "{{ _name }}"
+    group: "{{ _name }}"
+    mode: 0700
+  become: True
+
+- name: >
+    user: {{ _name }}
+    : Add to ssh group
+  user:
+    name: "{{ _name }}"
+    groups:
+      - "{{ sshd_allow_group }}"
+    append: True
+  become: True
+  when: _authorized_keys
+ 
+- name: >
+    user: {{ _name }}
+    : Authorized Keys
+  authorized_key:
+    user: "{{ _name }}"
+    state: present
+    key: "{{ _authorized_keys }}"
+    exclusive: True
+  become: True

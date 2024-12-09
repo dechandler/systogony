@@ -1,0 +1,22 @@
+---
+- name: >
+    config
+    : SSHD config files
+  template:
+    src: "{{ item }}"
+    dest: /etc/ssh/{{ item }}
+    validate: /usr/sbin/sshd -t -f %s
+  become: True
+  loop:
+    - sshd_config
+    - sshd_algorithms
+  notify: sshd restart
+
+
+- name: >
+    config
+    : Allow custom ports for Red Hat OSes
+  include_tasks: "redhat/custom-port.yml"
+  when: >
+    ['fedora', 'centos'] | system_match(group_names)
+    and sshd_port != 22

@@ -1,0 +1,45 @@
+---
+- name: >
+    redhat/custom-port
+    : Selinux allow listen on custom port
+  community.general.seport:
+    ports: "{{ sshd_port }}"
+    proto: tcp
+    setype: ssh_port_t
+    state: present
+  become: True
+
+
+- block:
+    - name: >
+        redhat/custom-port : firewalld
+        : Get current status
+      command:
+        cmd: firewall-cmd --list-all
+      become: True
+      register: firewalld_status_before
+      changed_when: False
+
+    - name: >
+        redhat/custom-port : firewalld
+        : Open custom port
+      firewalld:
+        port: "{{ sshd_port }}/tcp"
+        state: enabled
+        immediate: True
+        permanent: True
+      become: True
+      changed_when: False
+
+    - name: >
+        redhat/custom-port : firewalld
+        : Open port change status
+      command:
+        cmd: firewall-cmd --list-all
+      become: True
+      register: firewalld_status_after
+      changed_when: >
+        firewalld_status_before.stdout
+        != firewalld_status_after.stdout
+
+  when: firewall == "firewalld"
