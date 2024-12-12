@@ -1,0 +1,12 @@
+---
+- name: Remove temporary user
+  user:
+    name: "{{ bootstrap_user_name }}"
+    state: absent
+  become: True
+
+- name: Remove temporary user home
+  file:
+    path: "/home/{{ bootstrap_user_name }}"
+    state: absent
+  become: True
