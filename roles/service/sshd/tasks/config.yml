@@ -18,5 +18,5 @@
     : Allow custom ports for Red Hat OSes
   include_tasks: "redhat/custom-port.yml"
   when: >
-    ['fedora', 'centos'] | system_match(group_names)
+    ['fedora', 'centos'] | group_match(group_names)
     and sshd_port != 22

@@ -17,4 +17,4 @@
 - include_role:
     name: base/selinux
   when: >
-    ['fedora', 'centos'] | system_match(group_names)
+    ['fedora', 'centos'] | group_match(group_names)
