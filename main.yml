@@ -1,0 +1,23 @@
+---
+- name: Common
+  hosts: all
+  tasks:
+
+    - name: SSHD
+      include_role:
+        name: service/sshd
+
+    - name: System settings
+      include_role:
+        name: base/main
+
+    - name: Enforce state for automation user
+      include_role:
+        name: base/user
+      vars:
+        USER: "{{ automation_user }}"
+
+    - name: Remove init user
+      include_role:
+        name: init/user
+        tasks_from: remove
