@@ -12,6 +12,7 @@ chronos
 hemera
 nyx
 geras
+uranus
 
 
 # By OS
@@ -19,6 +20,7 @@ geras
 [centos]
 [centos:children]
 protectli
+linode
 
 [debian]
 [debian:children]
@@ -45,6 +47,7 @@ tower
 [server:children]
 rpi5
 rpi3
+linode
 
 # By Form Factor
 
@@ -63,3 +66,6 @@ geras
 chronos
 
 [rpi3]
+
+[linode]
+uranus
