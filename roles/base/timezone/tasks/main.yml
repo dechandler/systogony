@@ -1,0 +1,6 @@
+---
+- name: Set time zone
+  timezone:
+    name: "{{ time_zone }}"
+  #command: timedatectl set-timezone {{ time_zone }}
+  become: True

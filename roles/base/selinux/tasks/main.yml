@@ -1,0 +1,7 @@
+---
+- name: Install Python Libraries
+  dnf:
+    name:
+      - policycoreutils-python-utils
+      - python3-policycoreutils
+  become: True

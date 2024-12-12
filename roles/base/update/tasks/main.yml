@@ -1,0 +1,8 @@
+---
+- include_tasks: redhat/main.yml
+  when: >
+    ['fedora', 'centos'] | system_match(group_names)
+
+- include_tasks: debian/main.yml
+  when: >
+    ['debian', 'ubuntu'] | system_match(group_names)

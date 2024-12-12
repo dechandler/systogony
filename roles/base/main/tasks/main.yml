@@ -1,0 +1,20 @@
+---
+- include_role:
+    name: base/update
+
+- include_role:
+    name: base/auto-updates
+
+- include_role:
+    name: base/hostname
+
+- include_role:
+    name: base/locale
+
+- include_role:
+    name: base/timezone
+
+- include_role:
+    name: base/selinux
+  when: >
+    ['fedora', 'centos'] | system_match(group_names)
