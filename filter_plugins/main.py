@@ -5,7 +5,8 @@ class FilterModule:
     def filters(self):
 
         return {
-            'group_match': self.group_match
+            'group_match': self.group_match,
+            'dict_update': self.dict_update
         }
 
 
@@ -15,3 +16,9 @@ class FilterModule:
             if group in group_names:
                 return True
         return False
+
+
+    def dict_update(self, original, updates):
+
+        original.update(updates)
+        return original

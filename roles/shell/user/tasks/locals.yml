@@ -1,0 +1,22 @@
+---
+- name: >
+    locals
+    : Set shell user variables
+  set_fact:
+    _shell_user_vars:
+      ssh_key_names: "{{ USER.ssh_key_names | default([])}}"
+
+
+- name: >
+    locals
+    : Set base user defaults
+  include_tasks:
+    name: base/user
+    tasks_from: locals
+
+
+- name: >
+    locals
+    : Merge shell user variables
+  set_fact:
+    _user: "{{ _user | dict_update(_shell_user_vars) }}"
