@@ -10,7 +10,7 @@
 - name: >
     locals
     : Set base user defaults
-  include_tasks:
+  include_role:
     name: base/user
     tasks_from: locals
 
