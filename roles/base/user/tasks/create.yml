@@ -40,7 +40,8 @@
 
 
 - name: >
-    create : {{ _user.name }}
+    base/user
+    : create : {{ _user.name }}
     : Configure for sshd login
   include_role:
     name: service/sshd/user
