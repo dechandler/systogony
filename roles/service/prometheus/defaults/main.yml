@@ -1,0 +1,6 @@
+---
+prometheus_service_user:
+  name: prometheus
+  comment: Prometheus Monitoring
+  home: /opt/prometheus
+  uid: 9090

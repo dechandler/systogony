@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 35s
+  scrape_timeout: 35s
+  evaluation_interval: 60s
+
+scrape_configs:
+
+{% for svc_name, svc_def in services.items() %}
+{% if 'metrics' in svc_def.keys() %}
+- job_name: {{ svc_name }}
+  metrics_path: {{ svc_def.metrics.metrics_path | default('/metrics') }}
+  static_configs:
+  {% for host in svc_def.hosts | default([]) %}
+    - targets: ["{{ hostvars[host].ansible_default_ipv4.address }}:{{ svc_def.metrics.port }}"]
+  {% endfor %}
+{% endif %}
+{% endfor %}

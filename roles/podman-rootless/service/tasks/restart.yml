@@ -1,0 +1,9 @@
+---
+- name: >
+    restart : {{ SVC.name }}
+    : Restart service
+  command:
+    cmd: >
+      systemctl --user -M {{ SVC.user }}@
+      restart {{ SVC.name }}
+  become: True
