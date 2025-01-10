@@ -53,6 +53,12 @@
       when: inventory_hostname | has_service('mosquitto', services)
 
 
+    - name: Home Assistant Automation Server
+      include_role:
+        name: service/home-assistant
+      when: inventory_hostname | has_service('home-assistant', services)
+
+
     - name: Radicale DAV Server
       include_role:
         name: service/radicale
