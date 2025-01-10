@@ -14,7 +14,7 @@ scrape_configs:
 {% endif %}
   static_configs:
   {% for host in svc_def.hosts | default([]) %}
-    - targets: ["{{ hostvars[host].ansible_default_ipv4.address }}:{{ svc_def.metrics.port }}"]
+    - targets: ["{{ hostvars[host].addresses.home.ip }}:{{ svc_def.metrics.port }}"]
       labels: {
         "host": "{{ host }}"
       }
