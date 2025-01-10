@@ -44,12 +44,22 @@
       when: inventory_hostname | has_service('prometheus', services)
 
 
+    - name: Mosquitto MQTT Server
+      include_role:
+        name: service/mosquitto
+      vars:
+        mosquitto_port: "{{ services | deep_get('mosquitto.ports.primary', 1883) }}"
+        mosquitto_exporter_port: "{{ services | deep_get('mosquitto.metrics.port', 9234) }}"
+      when: inventory_hostname | has_service('mosquitto', services)
+
+
     - name: Radicale DAV Server
       include_role:
         name: service/radicale
       vars:
         radicale_port: "{{ services | deep_get('radicale.ports.primary', 5232) }}"
       when: inventory_hostname | has_service('radicale', services)
+
 
     - name: Audiobookshelf Server
       include_role:
