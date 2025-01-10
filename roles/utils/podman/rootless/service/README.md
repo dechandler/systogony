@@ -5,7 +5,7 @@
     : setup
     : Setup prometheus as rootless podman service
   include_role:
-    name: podman-rootless/service
+    name: utils/podman/rootless/service
     tasks_from: setup
   vars:
     SVC: "{{ _prom_svc }}"

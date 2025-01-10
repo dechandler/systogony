@@ -1,6 +1,6 @@
 ---
 - name: >
-    podman-rootless/user
+    utils/podman/rootless/user
     : create : {{ _user.name }}
     : Service user
   include_role:

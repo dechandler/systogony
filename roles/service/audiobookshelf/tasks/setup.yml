@@ -8,7 +8,7 @@
     : setup
     : Service user rootless setup
   include_role:
-    name: podman-rootless/user
+    name: utils/podman/rootless/user
     tasks_from: create
   vars:
     _user: "{{ _audiobookshelf_svc_user }}"
@@ -19,7 +19,7 @@
     : setup
     : Setup audiobookshelf as rootless podman service
   include_role:
-    name: podman-rootless/service
+    name: utils/podman/rootless/service
     tasks_from: setup
   vars:
     SVC: "{{ _audiobookshelf_svc }}"
