@@ -9,9 +9,15 @@ scrape_configs:
 {% if 'metrics' in svc_def.keys() %}
 - job_name: {{ svc_name }}
   metrics_path: {{ svc_def.metrics.metrics_path | default('/metrics') }}
+{% if 'params' in svc_def.metrics.keys() %}
+  params: {{ svc_def.metrics.params | to_json }}
+{% endif %}
   static_configs:
   {% for host in svc_def.hosts | default([]) %}
     - targets: ["{{ hostvars[host].ansible_default_ipv4.address }}:{{ svc_def.metrics.port }}"]
+      labels: {
+        "host": "{{ host }}"
+      }
   {% endfor %}
 {% endif %}
 {% endfor %}
