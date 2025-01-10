@@ -1,6 +1,8 @@
 ---
 - name: Common
   hosts: all
+  vars_files:
+    - private/maps/services.yaml
   tasks:
 
   # Redo bootstrap steps and post-bootstrap cleanup
@@ -33,14 +35,6 @@
         ['server'] | group_match(group_names)
 
 
-
-  # Self-hosted services
-    - name: Load Service Map
-      include_vars:
-        file: private/maps/services.yaml
-        name: services
-      run_once: True
-
     - name: Prometheus Monitoring Server
       include_role:
         name: service/prometheus
@@ -48,3 +42,18 @@
         monitored_services: "{{ services }}"
         prometheus_port: "{{ services | deep_get('prometheus.ports.primary', 9090) }}"
       when: inventory_hostname | has_service('prometheus', services)
+
+
+    - name: Radicale DAV Server
+      include_role:
+        name: service/radicale
+      vars:
+        radicale_port: "{{ services | deep_get('radicale.ports.primary', 5232) }}"
+      when: inventory_hostname | has_service('radicale', services)
+
+    - name: Audiobookshelf Server
+      include_role:
+        name: service/audiobookshelf
+      vars:
+        audiobookshelf_port: "{{ services | deep_get('audiobookshelf.ports.primary', 13378) }}"
+      when: inventory_hostname | has_service('audiobookshelf', services)
