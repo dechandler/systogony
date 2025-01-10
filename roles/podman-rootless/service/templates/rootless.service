@@ -24,32 +24,79 @@ ExecStart=/usr/bin/podman \
     {%    if SVC.keep_uid | default('')
             %}--userns=keep-id \
     {%    endif
+
+    %}{%  if SVC.read_only | default('')
+            %}--read-only \
+    {%    endif
+
+    %}{%  for cap in SVC.cap_drop | default([])
+            %}--cap-drop={{ cap }} \
+    {%    endfor
+    %}{%  for cap in SVC.cap_add | default([])
+            %}--cap-add={{ cap }} \
+    {%    endfor
+
+    %}{%  for env in SVC.environment | default([])
+            %}-e {{ env }} \
+    {%    endfor
+
     %}{%  for vol in SVC.volumes | default([])
             %}-v {{    vol.host_path
                  }}:{{ vol.container_path
                  }}:{{ vol.options | default('rw')
             }} \
     {%    endfor
+
     %}{%  if 'network' in SVC.keys()
-            %}--network {{ SVC.network}} \
+            %}--network {{ SVC.network }} \
     {%    else
     %}{%    for port in SVC.ports | default([])
-              %}-p {{    port.host_port
-                  }}:{{ port.container_port }} \
+              %}-p {%
+              if port is mapping
+                  %}{{  port.host_port
+                  }}:{{ port.container_port
+                  }}/{{ port.protocol | default("tcp")
+    }}{%      else
+                  %}{{ port
+    }}{%      endif
+              %} \
     {%      endfor 
     %}{%  endif
+
+    %}{%  if 'health' in SVC.keys()
+    %}{%    if 'cmd' in SVC.health.keys()
+    %}{%      set stub = "--health"
+    %}{%      for stem in ['cmd', 'on-failure', 'interval', 'retries']
+    %}{%        if stem in SVC.health.keys()
+                  %}{{ stub }}-{{ stem }}='{{ SVC.health[stem] }}' \
+    {%          endif
+    %}{%      endfor
+    %}{%      if 'startup' in SVC.health.keys()
+    %}{%        set stub = "--health-startup"
+    %}{%        for stem in ['success', 'timeout', 'interval', 'retries']
+    %}{%          if stem in SVC.health.startup.keys()
+                    %}{{ stub }}-{{ stem }}={{ SVC.health.startup[stem] }} \
+    {%            endif
+    %}{%        endfor
+    %}{%      endif
+    %}{%    endif
+    %}{%  endif
+
+
+
     %}{%  if 'extra_podman_args' in SVC.keys()
-            %}{{ SVC.extra_podman_args }} \
+            %}{{ SVC.extra_podman_args | trim }} \
     {%    endif
+
     %}--cidfile=%t/%n.ctr-id \
     --cgroups=no-conmon \
     --sdnotify=conmon \
     --label "io.containers.autoupdate=image" \
-    {{ SVC.image }}{%
-    if SVC.container_args | default ('')
-      %} \
-      {{ SVC.container_args
-    }}{% endif %}
+    {{    SVC.image
+    }}{%  if SVC.container_args | default ('')
+            %} \
+    {{      SVC.container_args
+    }}{%  endif %}
 
 
 ExecStop=/usr/bin/podman \
