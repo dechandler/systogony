@@ -1,6 +1,15 @@
 ---
 - name: >
     create : {{ _user.name }}
+    : Create primary group with gid
+  group:
+    name: "{{ _user.name }}"
+    gid: "{{ _user.uid }}"
+    state: present
+  become: True
+
+- name: >
+    create : {{ _user.name }}
     : Create user
   user:
     name: "{{ _user.name }}"
@@ -16,6 +25,7 @@
                 %}*{%
               endif
         %}
+    group: "{{ _user.name }}"
     uid: "{{ _user.uid }}"
     shell: "{{ _user.shell }}"
     comment: "{{ _user.comment }}"
