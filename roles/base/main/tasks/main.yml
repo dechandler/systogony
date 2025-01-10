@@ -15,6 +15,9 @@
     name: base/timezone
 
 - include_role:
+    name: base/mounts
+
+- include_role:
     name: base/selinux
   when: >
     ['fedora', 'centos'] | group_match(group_names)
