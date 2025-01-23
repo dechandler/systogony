@@ -1,0 +1,10 @@
+---
+- include_tasks: disable.yml
+
+- name: >
+    remove
+    : Remove firewalld package
+  dnf:
+    name: firewalld
+    state: absent
+  become: True

@@ -2,6 +2,7 @@
 - name: Setup automation user
   hosts: all
   vars:
+    ansible_host: "{{ addresses.home.ip }}"
     ansible_user: "{{ bootstrap_user_name }}"
     ansible_port: 22
   tasks:
@@ -11,6 +12,18 @@
         name: service/sshd
         tasks_from: install
 
+    - name: Connect to tailscale
+      include_role:
+        name: base/tailscale
+      when: >
+        inventory_hostname in ['uranus']
+
+    - name: Configure nftables
+      include_role:
+        name: base/nftables
+      vars:
+        allow_default_ssh: True
+      when: firewall == "nftables"
 
     - name: Create automation user
       include_role:
