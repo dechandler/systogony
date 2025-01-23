@@ -3,7 +3,12 @@
   hosts: all
   tasks:
 
-  # Redo bootstrap steps and post-bootstrap cleanup
+  # Post-bootstrap cleanup
+    - name: Cleanup bootstrap conditions
+      include_role:
+        name: init/cleanup
+
+  # Base setup
     - name: SSHD
       include_role:
         name: service/sshd
@@ -18,13 +23,7 @@
       vars:
         USER: "{{ automation_user }}"
 
-    - name: Remove init user
-      include_role:
-        name: init/user
-        tasks_from: remove
-
-
-  # Primary user and environment setup
+  # Primary user setup
     - name: Shell-based primary user setup
       include_role:
         name: shell/user
