@@ -13,10 +13,13 @@
   notify: sshd restart
 
 
-- name: >
-    config
-    : Allow custom ports for Red Hat OSes
-  include_tasks: "redhat/custom-port.yml"
+- include_tasks: selinux.yml
   when: >
     ['fedora', 'centos'] | group_match(group_names)
-    and sshd_port != 22
+
+
+# - include_tasks: firewalld.yml
+#   when: firewall == "firewalld"
+
+- include_tasks: nftables.yml
+  when: firewall == "nftables"

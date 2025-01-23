@@ -1,4 +1,7 @@
 
+{% if 'tailscale' in addresses.keys() %}
+ListenAddress {{ addresses.tailscale.ip }}
+{% endif %}
 Port {{ sshd_port }}
 
 PermitRootLogin no
