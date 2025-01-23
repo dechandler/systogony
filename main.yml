@@ -78,3 +78,9 @@
       vars:
         audiobookshelf_port: "{{ services | deep_get('audiobookshelf.ports.primary', 13378) }}"
       when: inventory_hostname | has_service('audiobookshelf', services)
+
+
+    - name: Caddy Reverse Proxy Server
+      include_role:
+        name: service/caddy
+      when: inventory_hostname | has_service('caddy', services)
