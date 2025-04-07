@@ -1,5 +1,13 @@
 ---
 - name: >
+    shell/user
+    : create : {{ _user.name }}
+    : Configure for sshd login
+  include_role:
+    name: service/sshd/user
+  when: _user.authorized_key_names
+
+- name: >
     create : {{ _user.name }}
     : ZSH installed
   include_role:

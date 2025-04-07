@@ -1,6 +1,17 @@
 ---
 - name: >
     main
+    : Ensure locale package
+  dnf:
+    name: glibc-langpack-en
+  become: True
+  when: >
+    ['alma'] | group_match(group_names)
+
+
+
+- name: >
+    main
     : Set locale
   shell: >
     localectl status

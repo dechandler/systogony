@@ -27,7 +27,7 @@
 
     - name: Create automation user
       include_role:
-        name: base/user
+        name: shell/user
       vars:
         USER: "{{ automation_user }}"
 

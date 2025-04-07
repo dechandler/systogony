@@ -17,9 +17,13 @@ uranus
 
 # By OS
 
+[alma]
+[alma:children]
+protectli
+
+
 [centos]
 [centos:children]
-protectli
 linode
 
 [debian]

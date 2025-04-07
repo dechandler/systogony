@@ -33,5 +33,16 @@
   when: firewall == "nftables"
 
 
+
+- name: >
+    main
+    : Check for node tailscale config
+  stat:
+    path: private/tailscale/{{ inventory_hostname }}.state
+  become: True
+  delegate_to: localhost
+  register: tailscale_config
+
 - include_role:
     name: base/tailscale
+  when: tailscale_config.stat.exists

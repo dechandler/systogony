@@ -4,6 +4,7 @@
     : Set shell user variables
   set_fact:
     _shell_user_vars:
+      authorized_key_names: "{{ USER.authorized_key_names | default([]) }}"
       ssh_key_names: "{{ USER.ssh_key_names | default([])}}"
 
 
