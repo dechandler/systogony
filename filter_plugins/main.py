@@ -1,14 +1,30 @@
 
+import ipaddress
+
 class FilterModule:
 
 
     def filters(self):
 
         return {
+            'net_info': self.net_info,
             'group_match': self.group_match,
             'has_service': self.has_service,
             'dict_update': self.dict_update,
             'deep_get': self.deep_get
+        }
+
+
+    def net_info(self, cidr):
+
+        network = ipaddress.ip_network(net_spec['cidr'])
+        ips = list(network.hosts())
+        return {
+            'cidr': net_spec['cidr'],
+            'gateway': str(ips[0]),
+            'prefix': network.prefixlen,
+            'netmask': str(network.netmask),
+            'last_host': str(ips[-1])
         }
 
 
