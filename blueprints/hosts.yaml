@@ -1,0 +1,93 @@
+---
+##
+### Routers
+##
+
+home-router:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['router']
+  interfaces:
+    wan:
+      iface_name: enp0s1
+    home-net:
+      iface_name: lan
+
+
+##
+### Laptops
+##
+
+laptop-me:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['laptop']
+  interfaces:
+    home-net:
+    ts:
+      ip: 100.100.100.105
+
+
+##
+### Service Hosts
+##
+
+home-server:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['service']
+  interfaces:
+    home-net:
+    ts:
+      ip: 100.100.100.103
+
+cloud-host:
+  groups: ['cloud']
+  interfaces:
+    wan:
+    ts:
+      ip: 100.100.100.104
+
+
+##
+### Mobile Devices
+##
+
+phone-me:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['mobile']
+  interfaces:
+    home-net:
+    ts:
+      ip: 100.100.100.101
+
+phone-you:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['mobile']
+  interfaces:
+    home-net:
+    ts:
+      ip: 100.100.100.102
+
+
+##
+### Appliances
+##
+
+wap:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['utility']
+
+printer:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['utility']
+
+
+##
+### IOT
+##
+
+outlet-porch-front:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['iot']
+
+outlet-porch-back:
+  hwaddr: XX:XX:XX:XX:XX:XX
+  groups: ['iot']

@@ -6,6 +6,7 @@
 """
 import json
 import logging
+import os
 import sys
 
 from functools import cached_property
@@ -22,9 +23,9 @@ class InventoryModule:  #(BaseInventoryPlugin):
 
 
 
-    def __init__(self):
+    def __init__(self, subdir):
 
-        self.env = SystogonyEnvironment()
+        self.env = SystogonyEnvironment(subdir)
 
     @cached_property
     def ansible_inventory(self):
@@ -61,6 +62,8 @@ def configure_loggers():
 
 if __name__ == "__main__":
 
+    blueprint = os.environ.get('SYSTOGONY_BP_SUBDIR', "blueprints")
+
     configure_loggers()
-    inventory = InventoryModule().ansible_inventory
+    inventory = InventoryModule(subdir=blueprint).ansible_inventory
     print(json.dumps(inventory, indent=4))

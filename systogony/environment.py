@@ -21,9 +21,9 @@ log = logging.getLogger("systogony-inventory")
 
 class SystogonyEnvironment:
 
-    def __init__(self):
+    def __init__(self, subdir):
 
-        self.blueprint = self.load_blueprints()
+        self.blueprint = self.load_blueprints(subdir)
 
 
 
@@ -71,6 +71,9 @@ class SystogonyEnvironment:
             for subnet in net.get_descendents(types=['networks']):
                 self.networks[subnet.fqn] = subnet
 
+
+
+        # Generate interfaces to connect host to network
         for host in self.hosts.values():
             host.add_interfaces()
 
@@ -112,6 +115,8 @@ class SystogonyEnvironment:
         # for service in self.services.values():
         #     service.apply_rules()
 
+
+        # Generate acls
         for resource in self.resources.values():
             resource.gen_acls()
 
@@ -299,10 +304,10 @@ class SystogonyEnvironment:
         return matches
 
 
-    def load_blueprints(self):
+    def load_blueprints(self, subdir):
 
         bp_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "blueprints"
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), subdir
         )
         return {
             'hosts': self._load(os.path.join(bp_dir, "hosts.yaml")),

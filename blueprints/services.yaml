@@ -1,0 +1,223 @@
+---
+admin:
+    hosts:
+        laptop-me:
+    access:
+        net.home-net:
+        net.ts:
+
+router:
+    hosts:
+        home-router:
+            network: net.home-net
+    ports:
+        dns: 53
+        dns_udp: udp/53
+        dhcp: 67
+    interfaces:
+        net.home-net:
+
+bootstrap_ssh:
+    hosts:
+        home-router:
+        laptop-me:
+        home-server:
+        cloud-host:
+    interfaces:
+        net.home-net:
+    ports:
+        ssh: 22
+    allows:
+        svc.admin:
+
+ssh:
+    hosts:
+        home-router:
+        laptop-me:
+        home-server:
+        cloud-host:
+    interfaces:
+        net.ts:
+    ports:
+        ssh: 2222
+    allows:
+        svc.admin:
+
+caddy:
+    hosts:
+        cloud-host:
+    ports:
+        primary: 443
+    access:
+        ts.svc.audiobookshelf:
+    allows:
+        net.wan:
+
+
+grafana:
+    description: Grafana Dashboard Server
+    hosts:
+        home-server:
+    ports:
+        primary: 3000
+    interfaces:
+        net.ts:
+    access:
+        home-net.svc.prometheus:
+
+
+prometheus:
+    description: Prometheus Monitoring
+    hosts:
+        home-server:
+    ports:
+        primary: 9090
+
+
+netdata:
+    description: NetData Server Metrics
+    hosts:
+        home-server:
+        laptop-me:
+        # uranus:
+    ports:
+        metrics: 19999
+    metrics:
+        port: metrics
+        uri: /api/v1/allmetrics
+        params:
+            format: ["prometheus"]
+            honor_labels: [true]
+    allows:
+        home-net.svc.prometheus:
+
+
+home-assistant:
+    description: Home Assistant
+    hosts:
+        home-server:
+    ports:
+        primary: 8123
+    # metrics:
+    allows:
+        home-net.svc.prometheus:
+        ts.devices:
+        ts.laptops:
+    access:
+        home-net.svc.mosquitto:
+        home-net.svc.radicale:
+
+
+mosquitto:
+    description: Mosquitto MQTT Server
+    hosts:
+        home-server:
+    interfaces:
+        net.home-net:
+    ports:
+        primary: 1883
+        metrics: 9234
+    metrics:
+        port: metrics
+        uri: /metrics
+    allows:
+        svc.prometheus:
+        net.iot:
+
+
+radicale:
+    description: Radicale DAV Server
+    hosts:
+        home-server:
+    ports:
+        primary: 5232
+    allows:
+        ts.laptops:
+        ts.devices:
+
+
+audiobookshelf:
+    description: Audio Bookshelf
+    hosts:
+        home-server:
+    interfaces:
+        net.ts:
+    ports:
+        primary: 13378
+    mounts:
+      - src: /mnt/data/audiobooks
+        dest: /opt/audiobookshelf/audiobooks
+        type: none
+        options: bind
+    allows:
+        net.laptops:
+        net.devices:
+
+
+syncthing-peer:
+    hosts:
+        svc.syncthing-server:
+        svc.syncthing-desktop:
+        svc.syncthing-mobile:
+    ports:
+        data: 22000
+        data_udp: udp/22000
+    allows:
+        net.laptops:
+        net.services:
+        net.devices:
+
+syncthing-server:
+    description: Syncthing (Containerized)
+    hosts:
+        home-server:
+    interfaces:
+        net.ts:
+    base_dir: /opt/syncthing
+    service_user_name: syncthing
+    service_user_uid: 7962
+    ports:
+        http: 8384
+    allows:
+        svc.admin:
+
+syncthing-desktop:
+    hosts:
+        laptop-me:
+
+syncthing-mobile:
+    hosts:
+        phone-me:
+
+
+
+
+
+printer:
+    hosts:
+        printer:
+    ports:
+        lpd: 515
+        pdl: 9100
+    allows:
+        home-net.net.laptops:
+        home-net.net.services:
+        home-net.net.devices:
+        home-net.net.guest-known:
+
+# tasmota:
+#     hosts:
+#         home-net.net.iot:  # net should work for this particular purpose
+#                        # with the service being unmanaged
+#     ports:
+#         http: 80
+
+esp-home:
+    hosts:
+        home-net.net.iot:
+    interfaces:
+        net.home-net:
+    ports:
+        primary: 6053
+    allows:
+        home-net.svc.home-assistant:
