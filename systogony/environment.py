@@ -16,7 +16,7 @@ from .services import Service, ServiceInstance
 from .exceptions import BlueprintLoaderError, NonMatchingPathSignal
 
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class SystogonyEnvironment:
@@ -78,7 +78,7 @@ class SystogonyEnvironment:
             host.add_interfaces()
 
 
-
+        """
         # Generate services
         for svc_name, svc_bp in self.blueprint['services'].items():
             svc_bp['name'] = svc_name
@@ -110,6 +110,7 @@ class SystogonyEnvironment:
                     if not svc.hosts_complete
                 ])
             ])))
+        """
 
         # Resolve shorthands in service allow/access
         # for service in self.services.values():
@@ -117,10 +118,8 @@ class SystogonyEnvironment:
 
 
         # Generate acls
-        for resource in self.resources.values():
-            resource.gen_acls()
-
-
+        # for resource in self.resources.values():
+        #     resource.gen_acls()
 
 
     def __str__(self):
@@ -312,7 +311,8 @@ class SystogonyEnvironment:
         return {
             'hosts': self._load(os.path.join(bp_dir, "hosts.yaml")),
             'networks': self._load(os.path.join(bp_dir, "networks.yaml")),
-            'services': self._load(os.path.join(bp_dir, "services.yaml"))
+            'services': self._load(os.path.join(bp_dir, "services.yaml")),
+            'vars': self._load(os.path.join(bp_dir, "vars.yaml"))
         }
 
     def _load(self, path):

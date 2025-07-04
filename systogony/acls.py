@@ -10,7 +10,7 @@ from .resource import Resource
 
 
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class Acl(Resource):

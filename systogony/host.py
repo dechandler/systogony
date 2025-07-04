@@ -1,4 +1,5 @@
 
+import ipaddress
 import json
 import logging
 
@@ -9,7 +10,7 @@ from .resource import Resource
 from .exceptions import BlueprintLoaderError
 
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class Host(Resource):
@@ -40,6 +41,10 @@ class Host(Resource):
 
         # Other attributes
         self.groups = host_spec.get('groups', [])
+        if "os" in host_spec:
+            self.groups.append(host_spec['os'])
+        if "device" in host_spec:
+            self.groups.append(host_spec['device'])
 
         self.spec_var_ignores.extend(['groups'])
         # self.extra_vars = {}  # default
@@ -48,7 +53,52 @@ class Host(Resource):
 
 
     @property
+    def default_iface(self):
+
+        # Record claims to being default interface
+        default_claims = {'hosts': [], 'net': []}
+        for iface in self.interfaces.values():
+            if 'default' in iface.spec:
+                default_claims['hosts'].append(iface)
+            if iface.network.claims_default:
+                default_claims['net'].append(iface)
+
+
+        # Evaluate equally-prioritized claims to default interface
+        # Error if ambiguous
+        def select_claim(claims):
+            if not claims:
+                return None
+
+            if len(claims) == 1:
+                return claims[0]
+
+            if len(claims > 1):
+                raise BlueprintLoaderError(' '.join([
+                    "Ambiguous default interface for",
+                    f"{self.name}: {claims}"
+                ]))
+
+        # Prioritize claims to default interface
+        default = (
+            select_claim(default_claims['hosts'])
+            or select_claim(default_claims['net'])
+        )
+        if not default:
+            raise BlueprintLoaderError(
+                f"Unknown default interface for {self.name}"
+            )
+
+        for iface in self.interfaces.values():
+            iface.is_default_iface = True if iface == default else False
+        
+        return default
+
+
+    @property
     def networks(self):
+
+
 
         return {
             iface.network.fqn: iface.network
@@ -64,6 +114,16 @@ class Host(Resource):
         }
 
 
+    @cached_property
+    def mounts(self):
+
+        mounts = []
+        for inst in self.service_instances.values():
+            if 'mounts' in inst.spec:
+                mounts.extend(inst.spec['mounts'])
+
+        return mounts
+
 
     @cached_property
     def extra_vars(self):
@@ -72,20 +132,74 @@ class Host(Resource):
             'service_instances': {
                 inst.name: inst.vars
                 for inst in self.service_instances.values()
-            }
+            },
+            'network_interfaces': {
+                iface.name: iface.vars
+                for iface in self.interfaces.values()
+            },
+            'mounts': self.mounts
         }
+
+
+
         return extra_vars
 
 
     def add_interfaces(self):
 
+        log.debug(f"Iface Specs for {self.name}: {self.spec.get('interfaces', {})}")
+
+        # Create and register interfaces
         for iface_net_name, iface_spec in self.spec.get('interfaces', {}).items():
             log.debug(f"Iface Net Name: {iface_net_name}")
             log.debug(f"Iface Spec: {json.dumps(iface_spec)}")
             self._add_interface(iface_net_name, iface_spec=iface_spec)
 
+        # Record claims to being default interface
+        default_claims = {'hosts': [], 'net': []}
+        for iface in self.interfaces.values():
+            if 'default' in iface.spec:
+                default_claims['hosts'].append(iface)
+            if iface.network.claims_default:
+                default_claims['net'].append(iface)
+
+        # Evaluate equally-prioritized claims to default interface
+        # Error if ambiguous
+        def select_claim(claims):
+            if not claims:
+                return None
+
+            if len(claims) == 1:
+                return claims[0]
+
+            if len(claims > 1):
+                raise BlueprintLoaderError(' '.join([
+                    "Ambiguous default interface for",
+                    f"{self.name}: {claims}"
+                ]))
+
+        # Prioritize claims to default interface
+        default = (
+            select_claim(default_claims['hosts'])
+            or select_claim(default_claims['net'])
+        )
+        if not default:
+            raise BlueprintLoaderError(
+                f"Unknown default interface for {self.name}"
+            )
+
+        for iface in self.interfaces.values():
+            iface.is_default_iface = True if iface == default else False
+
+        log.info(' '.join([
+            f"Interfaces on {self.name}:",
+            ', '.join([ iface.name for iface in self.interfaces.values() ])
+        ]))
+
+
     def _add_interface(self, iface_net_name, iface_spec=None):
 
+        log.debug(f"Adding interface: {iface_net_name} - {iface_spec}")
         iface_spec = iface_spec or {}
         iface_spec['name'] = f"{iface_net_name}.{self.name}"
         iface_spec['network'] = (('network', iface_net_name),)
@@ -123,6 +237,8 @@ class Host(Resource):
                 #for inst in inst_list
             ]
         }
+
+
 
     def get_ingress_rules(self):
 
@@ -235,8 +351,12 @@ class Interface(Resource):
 
         self.network = network
         self.host = host
+        if self.network.net_type == "isolated":
+            net_cidr = ipaddress.ip_network(self.network.cidr)
+            self.spec['ip'] = [*net_cidr.hosts()][1]
 
         # Register this resource
+        log.debug(f"Registering to {self.host.name}: {network.network.fqn[0][1]}")
         host.interfaces[network.network.fqn[0][1]] = self
         network.interfaces[host.fqn] = self
 
@@ -255,11 +375,10 @@ class Interface(Resource):
         self.acls_egress = {}
         self.acls = {'ingress': self.acls_ingress, 'egress': self.acls_egress}
 
-        self.spec_var_ignores.extend(['groups'])
+        self.spec_var_ignores.extend(['groups', 'network'])
         # self.extra_vars = {}  # default
 
-
-        #network = iface_spec['network']
+        #network = self.spec['network']
         #print(network, host.fqn)
 
 
@@ -283,11 +402,24 @@ class Interface(Resource):
             if self.fqn in [*inst.interfaces]
         }
 
+    @cached_property
+    def extra_vars(self):
 
+        extra_vars = {}
+        if 'ip' in self.spec:
+            extra_vars['ip'] = f"{self.spec['ip']}"
+        if 'domain' in self.network.network.spec:
+            extra_vars['fqdn'] = f"{self.host.name}.{self.network.network.spec['domain']}"
+        extra_vars.update({
+            'net_name': self.network.network.name,
+            'default': self.is_default_iface
+        })
+        return extra_vars
 
     def _get_extra_serial_data(self):
 
-        return {
-            'host': str(self.host.fqn),
-            'network': str(self.network.fqn)
-        }
+        data = {}
+        if 'ip' in self.spec:
+            data['ip'] = f"{self.spec['ip']}"
+
+        return data

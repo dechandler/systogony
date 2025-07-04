@@ -3,11 +3,12 @@ import json
 import logging
 
 from collections import defaultdict, OrderedDict
+from functools import cached_property
 
 from .resource import Resource
 from .exceptions import BlueprintLoaderError
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class Service(Resource):
@@ -100,7 +101,10 @@ class Service(Resource):
 
     def populate_hosts(self):
 
-        log.debug(f"Attempting to populate hosts: {str(self.fqn)}")
+        log.debug(' '.join([
+            "Attempting to populate hosts:",
+            '.'.join([ '.'.join(pair) for pair in self.fqn ])
+        ]))
 
         # All shorthands have resolved previously, so skip
         if self.hosts_complete:
@@ -108,26 +112,40 @@ class Service(Resource):
 
         # Generate list of hosts but return if any shorthands have no matches
         hosts = {}
-        for shorthand, overrides in self.spec.get('hosts', {}).items():
+        host_identifiers = {}
+        for shorthand in self.spec.get('hosts', {}):
             try:
                 resolved_hosts = self.env.resolve_to_rtype(
-                    shorthand, ['host', 'service_instance', 'service', 'network'],
+                    shorthand,
+                    ['host', 'service_instance', 'service', 'network'],
                     'hosts'
                 )
                 assert resolved_hosts
             except (BlueprintLoaderError, AssertionError):
-                return []
+                return {}
 
             hosts.update(resolved_hosts)
-
+            host_identifiers.update({
+                host.fqn: shorthand
+                for host in resolved_hosts.values()
+            })
+            host_identifiers[shorthand] = resolved_hosts
 
         # Mark all host shorthands resolved
         self.hosts_complete = True
 
         # Generate service instances on matching hosts
+        instance_names = []
         for host in hosts.values():
-            ServiceInstance(self.env, self, host, overrides)
+            shorthand = host_identifiers[host.fqn]
+            overrides = self.spec.get('hosts', {}).get(shorthand)
+            inst = ServiceInstance(self.env, self, host, overrides)
+            instance_names.append(inst.host.name)
 
+        log.info(' '.join([
+            f"Hosts running {self.name}:",
+            ', '.join(instance_names)
+        ]))
 
 class ServiceInstance(Resource):
 
@@ -135,9 +153,9 @@ class ServiceInstance(Resource):
 
     def __init__(self, env, service, host, overrides):
 
-        log.debug("New ServiceInstance")
-        log.debug(f"    Service: {service.fqn}")
-        log.debug(f"    Host:    {host.fqn}")
+        log.debug(f"New ServiceInstance: {host.name}.{service.name}")
+        log.debug(f"    Service FQN: {service.fqn}")
+        log.debug(f"    Host FQN:    {host.fqn}")
 
         self.resource_type = "service_instance"
         self.shorthand_type_matches = [
@@ -153,9 +171,6 @@ class ServiceInstance(Resource):
         overrides = { k: v for k, v in (overrides or {}).items() }
 
         self.fqn = tuple([*host.fqn, *service.fqn])
-
-
-
 
 
 
@@ -196,9 +211,11 @@ class ServiceInstance(Resource):
 
 
         # Other attributes
-        # self.spec_var_ignores.extend([])
-        self.extra_vars.update(service.vars)
-        self.extra_vars.update(overrides)
+        self.spec_var_ignores.extend(['mounts'])
+        self.spec.update(service.vars)
+        self.spec.update(overrides)
+        # self.extra_vars.update(service.vars)
+        # self.extra_vars.update(overrides)
         # self.extra_vars = {}  # default
 
 
@@ -220,6 +237,14 @@ class ServiceInstance(Resource):
 
         log.debug(f"    Data: {json.dumps(self.serialized, indent=4)}")
 
+    @cached_property
+    def extra_vars(self):
+
+        extra_vars = {}
+        extra_vars['ports'] = self.ports
+        #extra_vars.update(self.)
+
+        return extra_vars
 
 
     def _get_extra_serial_data(self):

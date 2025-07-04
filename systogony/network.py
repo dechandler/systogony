@@ -9,7 +9,7 @@ from .resource import Resource
 from .exceptions import BlueprintLoaderError
 
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class Network(Resource):
@@ -18,11 +18,14 @@ class Network(Resource):
 
     def __init__(self, env, net_spec, parent_net=None):
 
-        log.debug(f"New Network - spec: {json.dumps(net_spec)}")
+
+        log.info(f"New network: {net_spec['name']} ({net_spec['type']})")
+        log.debug(f"    Spec: {json.dumps(net_spec, indent=4)}")
 
         self.resource_type = "network"
         self.shorthand_type_matches = ["network", "net", "subnet"]
         super().__init__(env, net_spec)
+
 
         self.parents = [] if parent_net is None else [parent_net]
         self.parent = parent_net
@@ -53,6 +56,7 @@ class Network(Resource):
         # self.service_instances  # property via host if self in host ifaces
 
         # Other attributes
+        self.claims_default = self.spec.get('default', True)
         self.net_type = self.spec['type']
         self.subnets = {}  # registry of Network
         self.acls_forward = {}  # registry of Acl

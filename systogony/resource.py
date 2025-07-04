@@ -5,7 +5,7 @@ from functools import cached_property
 
 from .exceptions import NonMatchingPathSignal
 
-log = logging.getLogger("systogony-inventory")
+log = logging.getLogger("systogony")
 
 
 class Resource:
