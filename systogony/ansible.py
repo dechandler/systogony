@@ -7,6 +7,7 @@
 import json
 import logging
 import os
+import socket
 import sys
 
 from functools import cached_property
@@ -28,6 +29,7 @@ class SystogonyAnsibleInventory:  #(BaseInventoryPlugin):
 
     def __str__(self):
 
+        log.debug(str(self.ansible_inventory))
         return json.dumps(self.ansible_inventory, indent=4)
 
     @cached_property
@@ -35,14 +37,19 @@ class SystogonyAnsibleInventory:  #(BaseInventoryPlugin):
         """
 
         """
-        self.env.hostvars['localhost'] = {'ansible_inventory': "local"}
+        self.env.hostvars['localhost'] = {'ansible_connection': "local"}
         inventory = {
             '_meta': {'hostvars': self.env.hostvars},
             'all': {'hosts': [host for host in self.env.hostvars]}
         }
         inventory['_meta']['hostvars']['localhost'] = {
-            'ansible_inventory': "local"
+            'ansible_connection': "local"
         }
+        local_hostname = socket.gethostname().split('.')[0]
+        log.debug(f"Local hostname: {local_hostname}")
+        if local_hostname in self.env.hostvars:
+            self.env.hostvars[local_hostname]['ansible_connection'] = "local"
+
         inventory['all']['vars'] = self.env.blueprint['vars']
         inventory.update({
             name: {'hosts': members}

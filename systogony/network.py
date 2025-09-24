@@ -59,8 +59,8 @@ class Network(Resource):
         self.claims_default = self.spec.get('default', True)
         self.net_type = self.spec['type']
         self.subnets = {}  # registry of Network
-        self.acls_forward = {}  # registry of Acl
-        self.acls = {'forward': {}}
+        # self.acls_forward = {}  # registry of Acl
+        #self.acls = {'forward': {}}
 
         self.spec_var_ignores.extend([
             'subnets', 'cidr_prefix_offset', 'cidr_index', 'type', 'router'
@@ -107,10 +107,10 @@ class Network(Resource):
     #         'rules': {'forward': self.rules['forward']}
     #     }
 
-    @property
-    def metahost_name(self):
+    # @property
+    # def metahost_name(self):
 
-        return f"net_{self.short_fqn_str}_metahost"
+    #     return f"net_{self.short_fqn_str}_metahost"
 
     def gen_isolation_subnets(self):
 
@@ -164,6 +164,12 @@ class Network(Resource):
     #     for host in self.hosts.values():
     #         ifaces.update(host.interfaces)
     #     return ifaces
+
+    @property
+    def addresses(self):
+
+        return {self.fqn: [self.cidr]}
+
 
     def get_net_lineage(self, net):
         if not net.parent:

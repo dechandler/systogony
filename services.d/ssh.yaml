@@ -1,0 +1,8 @@
+---
+description: SSHD
+
+ports:
+    ssh: 22
+
+allow_group: ssh
+containerized: False

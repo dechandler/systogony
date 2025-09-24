@@ -1,0 +1,14 @@
+---
+description: Mosquitto MQTT Server
+
+ports:
+    primary: 1883
+    metrics: 9234
+
+metrics:
+    port: metrics
+    uri: /metrics
+
+service_user_name: mosquitto
+service_user_id: 1883
+base_dir: /var/lib/mosquitto

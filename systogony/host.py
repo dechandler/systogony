@@ -35,6 +35,7 @@ class Host(Resource):
         # self.services  # property - service_instances -> services
         self.service_instances = {}  # registrar
 
+
         # Lineage for walking up and down the heirarchy
         self.parent = None
         #self.children = {k: v for k, v in self.interfaces.items()}
@@ -56,13 +57,13 @@ class Host(Resource):
     def default_iface(self):
 
         # Record claims to being default interface
+        # Prioritize claims on host, then which network,
         default_claims = {'hosts': [], 'net': []}
         for iface in self.interfaces.values():
             if 'default' in iface.spec:
                 default_claims['hosts'].append(iface)
-            if iface.network.claims_default:
+            if iface.network.claims_default or len(self.interfaces) == 1:
                 default_claims['net'].append(iface)
-
 
         # Evaluate equally-prioritized claims to default interface
         # Error if ambiguous
@@ -118,15 +119,39 @@ class Host(Resource):
     def mounts(self):
 
         mounts = []
+        mounts.extend(self.spec.get('mounts', []))
         for inst in self.service_instances.values():
-            if 'mounts' in inst.spec:
-                mounts.extend(inst.spec['mounts'])
+            mounts.extend(inst.spec.get('mounts', []))
 
         return mounts
 
+    @property
+    def firewall_rules(self):
 
-    @cached_property
+        rules = {}
+        for iface in self.interfaces.values():
+            rules.update(iface.firewall_rules)
+        log.debug("Firewall Rules")
+        log.debug(rules)
+        return rules
+
+
+    @property
     def extra_vars(self):
+
+        # rules = {}
+        # for net_fqn, net_rules in self.firewall_rules.items():
+        #     net_name = self.env.networks[net_fqn].name
+        #     rules[net_name] = {}
+        #     for rule_type, typed_rules in net_rules.items():
+        #         rules[net_name][rule_type] = []
+        #         for acl_fqn, rule in typed_rules.items():
+        #             log.debug(rule)
+        #             rules[net_name][rule_type].append(rule)
+
+            #     rules[str(net_fqn)][rule_type]
+
+
 
         extra_vars = {
             'service_instances': {
@@ -134,10 +159,11 @@ class Host(Resource):
                 for inst in self.service_instances.values()
             },
             'network_interfaces': {
-                iface.name: iface.vars
-                for iface in self.interfaces.values()
+                net_name: iface.vars
+                for net_name, iface in self.interfaces.items()
             },
-            'mounts': self.mounts
+            'mounts': self.mounts,
+            #'rules': rules
         }
 
 
@@ -184,6 +210,10 @@ class Host(Resource):
             or select_claim(default_claims['net'])
         )
         if not default:
+            log.warning(
+                f"Unknown default interface for {self.name}: \n"
+                f"Default claims: {default_claims}"
+            )
             raise BlueprintLoaderError(
                 f"Unknown default interface for {self.name}"
             )
@@ -206,14 +236,20 @@ class Host(Resource):
         if iface_spec['network'] not in self.env.networks:
             raise BlueprintLoaderError(f"No network {iface_net_name} available for {self.name}")
 
+        # Determine immediate parent network of interface
         for net_fqn, net in self.env.networks.items():
-            #print(net_fqn, iface_net_name)
+
+            # Skip if top level network doesn't match
             if net_fqn[0] != ("network", iface_net_name):
                 continue
+
+            # Network name matching the host name means
+            # it's an isolated subnet the host goes into
             if net_fqn[-1] == ("network", self.name):  # isolated subnet
                 iface_parent_net = net
                 break
         else:
+            # Parent net is 
             iface_parent_net = self.env.networks[iface_spec['network']]
 
 
@@ -240,91 +276,6 @@ class Host(Resource):
 
 
 
-    def get_ingress_rules(self):
-
-        self.rules = {}
-
-        ingress_acls = {}
-
-        # where all host interfaces have an acl, set rule interface to None
-        acls = defaultdict(dict)
-        for interface in self.interfaces.values():
-            for acl_fqn, acl in interface.acls['ingress'].items():
-                if acl_fqn not in acls:
-                    acls[acl_fqn] = {'object': acl, 'interfaces': {}}
-                acls[acl_fqn]['interfaces'][interface.fqn] = interface
-        for acl in all_acls.values():
-            acl_iface_fqns = [
-                fqn for fqn, interface in self.interfaces.items()
-                if acl.fqn in interface.acls['ingress']
-            ]
-            #if acl.fqn in 
-
-        interfaces = {}
-
-
-            # iface = interfaces[interface.fqn] = interface
-
-
-            #     rule = {
-            #         ''
-            #         'interfaces': {
-            #             fqn: iface
-            #             for fqn, iface in self.interfaces.items()
-            #             if fqn in interfaces
-            #         },
-            #         'sources': acl.sources,
-            #         'ports': acl. acl.ports
-            #     }
-
-        if len(interfaces) == len(self.interfaces):
-            pass
-
-        # if host_fqn in [
-        #     iface.host.fqn for iface in self.destinations.values()
-        # ]:
-        #     rule_type = "ingress"
-        # elif host_fqn in [
-        #     iface.host.fqn for iface in self.sources.values()
-        # ]:
-        #     rule_type = "egress"
-        # elif self.env.hosts[host_fqn].network.router.fqn == host_fqn
-        #     rule_type = "forward"
-
-        rule = {
-            'interfaces': {
-                iface for fqn, iface in self.interfaces.items()
-                if fqn in host.interfaces
-            },
-            'sources': self.sources,
-            #'destinations': 
-            'ports': self.ports
-        }
-        if target_type == "ingress":
-            return {
-                'interfaces': {
-                    iface for fqn, iface in self.interfaces.items()
-                    if fqn in host.interfaces
-                },
-                'sources': self.sources,
-                'ports': self.ports
-            }
-
-
-
-
-    def fw_allow_service(self, service, sources, iface=None):
-
-
-
-        for inst in self.service_instances.values():
-
-            acl = Acl(
-                matches,  # sources
-                [self],  # destinations
-                acl_spec.get('ports', {}),
-                acl_spec.get('fw_log_count')
-            )
 
 class Interface(Resource):
 
@@ -356,6 +307,8 @@ class Interface(Resource):
             self.spec['ip'] = [*net_cidr.hosts()][1]
 
         # Register this resource
+
+
         log.debug(f"Registering to {self.host.name}: {network.network.fqn[0][1]}")
         host.interfaces[network.network.fqn[0][1]] = self
         network.interfaces[host.fqn] = self
@@ -371,9 +324,9 @@ class Interface(Resource):
         self.parent = network
 
         # Other attributes
-        self.acls_ingress = {}
-        self.acls_egress = {}
-        self.acls = {'ingress': self.acls_ingress, 'egress': self.acls_egress}
+        # self.acls_ingress = {}
+        # self.acls_egress = {}
+        # self.acls = {'ingress': self.acls_ingress, 'egress': self.acls_egress}
 
         self.spec_var_ignores.extend(['groups', 'network'])
         # self.extra_vars = {}  # default
@@ -383,6 +336,87 @@ class Interface(Resource):
 
 
         log.debug(f"    Interface data: {json.dumps(self.serialized, indent=4)}")
+
+    def _get_xgress_ips(self, rule_type, remotes, network):
+
+        ips = []
+        for target in remotes.values():
+            for net_fqn, addrs in target.addresses.items():
+                log.debug(f"addrs: {target.name} {net_fqn} {addrs}")
+                if net_fqn == self.network.network.fqn:
+                    ips.extend(addrs)
+
+        log.debug(f"IPs for {self.name}: {ips}")
+        return ips
+
+
+
+
+
+    @property
+    def firewall_rules(self):
+
+        rules = {
+            'ingress': {},
+            'egress': {},
+            'forward': {}
+        }
+        get_rule = lambda acl: {
+            'ports': acl.ports,
+            'name': acl.name,
+            'description': acl.description
+        }
+
+        # Ingress rules (INPUT)
+        for acl in self.acls['ingress'].values():
+            rule = get_rule(acl)
+            rule['source_addrs'] = list(set(self._get_xgress_ips(
+                'ingress', acl.sources, self.network.network
+            )))
+            rules['ingress'][acl.fqn] = rule
+
+        # Egress rules (OUTPUT)
+        for acl in self.acls['egress'].values():
+            rule = get_rule(acl)
+            rule['destination_addrs'] = list(set(self._get_xgress_ips(
+                'egress', acl.sources, self.network.network
+            )))
+            rules['egress'][acl.fqn] = rule
+
+        # Return rules if no router service
+        for inst in self.service_instances.values():
+            if inst.service.name == "router":
+                break
+        else:
+            log.debug(rules)
+            return {self.network.network.fqn: rules}
+
+        # Forward rules (FORWARD)
+        forward_acls = self.network.network.acls['forward']
+        for acl in forward_acls.values():
+            rule = {
+                'name': acl.name,
+                'description': acl.description,
+                'ports': acl.ports,
+                'source_addrs': [],
+                'destination_addrs': []
+            }
+
+            net_fqn = self.network.network.fqn
+
+            for src in acl.sources.values():
+                rule['source_addrs'].extend(src.addresses.get(net_fqn, []))
+            for dest in acl.destinations.values():
+                rule['destination_addrs'].extend(dest.addresses.get(net_fqn, []))
+
+            # Dedupe
+            rule['source_addrs'] = list(set(rule['source_addrs']))
+            rule['destination_addrs'] = list(set(rule['destination_addrs']))
+
+            rules['forward'][acl.fqn] = rule
+
+        log.debug(rules)
+        return {self.network.network.fqn: rules}
 
 
     @property
@@ -402,8 +436,28 @@ class Interface(Resource):
             if self.fqn in [*inst.interfaces]
         }
 
-    @cached_property
+    @property
+    def addresses(self):
+
+        if 'ip' not in self.spec:
+            log.debug(f"Addresses requested, ip missing from spec, spec is {self.spec}")
+            return {self.network.network.fqn: []}
+
+        log.debug(f"{self.network.network.fqn}: {[str(self.spec['ip'])]}")
+        return {self.network.network.fqn: [str(self.spec['ip'])]}
+
+    @property
     def extra_vars(self):
+
+        fw_rules = {}
+
+        for rule_type, typed_rules in self.firewall_rules[self.network.network.fqn].items():
+            fw_rules[rule_type] = []
+            log.debug(typed_rules)
+            for rule in typed_rules.values():
+                # log.debug("STUFF")
+                # log.debug(rule)
+                fw_rules[rule_type].append(rule)
 
         extra_vars = {}
         if 'ip' in self.spec:
@@ -412,7 +466,8 @@ class Interface(Resource):
             extra_vars['fqdn'] = f"{self.host.name}.{self.network.network.spec['domain']}"
         extra_vars.update({
             'net_name': self.network.network.name,
-            'default': self.is_default_iface
+            'default': self.is_default_iface,
+            'firewall_rules': fw_rules
         })
         return extra_vars
 

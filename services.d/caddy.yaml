@@ -1,0 +1,8 @@
+---
+description: Caddy - Batteries Included Reverse Proxy
+
+ports:
+    https: 443
+    http: 80
+    local_https: 8443
+    local_http: 8080

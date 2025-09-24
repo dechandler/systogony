@@ -1,0 +1,8 @@
+---
+description: Container Image Registry
+
+ports:
+    primary: 5000
+
+base_dir: /var/lib/container-registry
+service_user_uid: 5647

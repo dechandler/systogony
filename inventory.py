@@ -33,7 +33,8 @@ def configure_loggers(log_level):
 if __name__ == "__main__":
 
     blueprint = os.environ.get('SYSTOGONY_BP_SUBDIR', "blueprints")
-    log_level = logging.WARN
+    log_level = logging.DEBUG
+    #log_level = logging.WARNING
 
 
     configure_loggers(log_level)

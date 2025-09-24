@@ -1,0 +1,11 @@
+---
+description: Audio Bookshelf
+
+ports:
+    primary: 13378
+
+data_subdirs:
+    - audiobooks
+
+base_dir: /var/lib/audiobookshelf
+service_user_uid: 3378

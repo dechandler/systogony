@@ -1,0 +1,8 @@
+---
+description: Grafana Dashboard Server
+
+ports:
+    primary: 3000
+
+base_dir: /var/lib/grafana
+service_user_uid: 3000

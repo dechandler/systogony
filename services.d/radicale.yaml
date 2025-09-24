@@ -1,0 +1,8 @@
+---
+description: Radicale DAV Server
+
+ports:
+    primary: 5232
+
+base_dir: /var/lib/radicale
+service_user_uid: 5232

@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict
 from functools import cached_property
 
 from .resource import Resource
-from .exceptions import BlueprintLoaderError
+from .exceptions import BlueprintLoaderError, MissingServiceError, NotReadySignal
 
 log = logging.getLogger("systogony")
 
@@ -17,7 +17,8 @@ class Service(Resource):
 
     def __init__(self, env, svc_spec):
 
-        log.debug(f"New Service - spec: {json.dumps(svc_spec)}")
+        log.info(f"New Service: {svc_spec['name']}")
+        log.debug(f"    Spec: {json.dumps(svc_spec)}")
 
         self.resource_type = "service"
         self.shorthand_type_matches = ["service", "svc"]
@@ -37,18 +38,109 @@ class Service(Resource):
         self.children = self.service_instances
 
 
-        self.allows = {}
-
         # Other attributes
-        self.ports = self.spec.get('ports', {})
+        self.port_overrides = self.spec.get('ports', False)
+        #self.ports = self.spec.get('ports', {})
 
-        self.spec_var_ignores.extend(['ports'])
+        #self.spec_var_ignores.extend(['ports'])
         # self.extra_vars = {}  # default
 
 
         self.parents = []
 
         log.debug(f"Service data: {json.dumps(self.serialized, indent=4)}")
+
+    @property
+    def ports(self):
+
+        if self.port_overrides in [None, {}, []]:
+            return {}
+        if type(self.port_overrides) == dict:
+            return self.port_overrides
+
+        ports = {
+            name: num for name, num
+            in self.var_inheritance.get('ports', {}).items()
+        }
+
+        if self.port_overrides == False:
+            return { name: num for name, num in ports.items() }
+
+        if type(self.port_overrides) == list:
+            return {
+                name: num for name, num
+                in ports.items()
+                if name in self.port_overrides
+            }
+
+
+
+    # def get_rules(self):
+
+
+    #     allows = []
+    #     for shorthand, allow_spec in self.vars.get('allows', {}).items():
+
+    #         rtype, matches = self.env.get_priority_matches(
+    #             shorthand, ['networks', 'services', 'hosts']
+    #         )
+    #         allows.append({
+    #             'spec': allow_spec,
+    #             'sources': matches
+    #         })
+
+    #     interface_groups = f
+
+    #     port_groups = {}
+    #     for allow in allows:
+    #         ports_spec = allow['spec'].get('ports')
+    #         if ports_spec is False:
+    #             ports = {}
+    #         elif not ports_spec:
+    #             ports = {**self.ports}
+    #         elif type(ports_spec) == list:
+    #             ports = { k: v for k, v in self.ports if k in port_spec }
+    #         elif type(ports_spec) == dict:
+    #             ports = {**ports_spec}
+
+
+    #         for name, num in ports.items():
+    #             ports_key = set([name, num])
+    #             if ports_key not in port_groups:
+    #                 port_groups[ports_key] = []
+    #             port_groups[ports_key].append(allow)
+
+
+    #         ports_key = set(ports)
+    #         if ports_key not in port_groups:
+    #             port_groups[ports_key] = []
+    #         port_groups[ports_key].append(allow)
+
+    #         set(ports[port_name] for port_name in sorted(ports))
+
+
+    # def resolve_to_rtype(
+    #     self, shorthand, source_rtype_priorities, target_rtype
+    # ):
+
+    #         rtype, matches = self.env.get_priority_matches(
+    #             shorthand, ['network', 'host']
+    #         )
+    #         if matches:
+
+    #             if rtype == "network":
+
+
+
+    #         _, matches = self.env.get_priority_matches(
+    #             shorthand, ['service']
+    #         )
+    #         if matches:
+    #             for
+
+
+
+
 
     @property
     def hosts(self):
@@ -59,7 +151,16 @@ class Service(Resource):
         }
 
     @property
+    def networks(self):
+
+        return {
+            iface.network.network.fqn: iface.network.network
+            for iface in self.interfaces.values()
+        }
+
+    @property
     def interfaces(self):
+
 
         ifaces = {}
         for inst in self.service_instances.values():
@@ -79,6 +180,50 @@ class Service(Resource):
 
             #self._fqn_str_list(self.service_instances),
             #'allows': self.allows
+        }
+
+    @property
+    def var_inheritance(self):
+
+        parent = self.spec.get('service')
+
+        if not parent:
+            if self.name in self.env.svc_defaults:
+                inherited = self.env.svc_defaults[self.name]
+            else:
+                inherited = {}
+
+        elif parent in self.env.blueprint['services']:
+            inherited = self.env.services[('service', parent)].vars
+
+        elif parent in self.env.svc_defaults:
+            inherited = self.env.svc_defaults[parent]
+
+        else:
+            raise MissingServiceError("")
+
+        log.debug(f"Inheriting {parent} vars for {self.name}: {inherited}")
+
+        return {
+            k: v for k, v
+            in inherited.items()
+        }
+
+
+
+    @property
+    def vars(self):
+
+        log.debug("SERVICE VARS")
+        rvars = {
+            k: v for k, v
+            in self.var_inheritance.items()
+        }
+        rvars.update(self.spec)
+        return {
+            k: v for k, v
+            in rvars.items()
+            if k not in self.spec_var_ignores
         }
 
 
@@ -102,7 +247,7 @@ class Service(Resource):
     def populate_hosts(self):
 
         log.debug(' '.join([
-            "Attempting to populate hosts:",
+            f"Attempting to populate hosts for {self.name}:",
             '.'.join([ '.'.join(pair) for pair in self.fqn ])
         ]))
 
@@ -120,9 +265,13 @@ class Service(Resource):
                     ['host', 'service_instance', 'service', 'network'],
                     'hosts'
                 )
-                assert resolved_hosts
-            except (BlueprintLoaderError, AssertionError):
-                return {}
+            except BlueprintLoaderError:
+                log.error(f"BlueprintLoaderError for {self.name}: {shorthand}")
+                raise BlueprintLoaderError(f'Shorthand "{shorthand}" under service hosts {self.name}')
+
+            if not resolved_hosts:
+                log.debug(f"Failed to resolve hosts for {self.name}: {shorthand}")
+                raise NotReadySignal(f"No hosts for {shorthand}")
 
             hosts.update(resolved_hosts)
             host_identifiers.update({
@@ -151,7 +300,7 @@ class ServiceInstance(Resource):
 
 
 
-    def __init__(self, env, service, host, overrides):
+    def __init__(self, env, service, host, inst_spec):
 
         log.debug(f"New ServiceInstance: {host.name}.{service.name}")
         log.debug(f"    Service FQN: {service.fqn}")
@@ -164,11 +313,15 @@ class ServiceInstance(Resource):
             "service", "svc"
         ]
 
-        super().__init__(env, {'name': service.name})
+        if not inst_spec:
+            inst_spec = {}
+        inst_spec['name'] = service.name
+        super().__init__(env, inst_spec)
 
         self.service = service
         self.host = host
-        overrides = { k: v for k, v in (overrides or {}).items() }
+        overrides = { k: v for k, v in (inst_spec or {}).items() }
+        self.port_overrides = overrides.get('ports', False)
 
         self.fqn = tuple([*host.fqn, *service.fqn])
 
@@ -176,22 +329,22 @@ class ServiceInstance(Resource):
 
         # Associated resources by type
         self.hosts = {self.host.fqn: self.host}  # static
-        self.interfaces = {
-            fqn: interface for fqn, interface in host.interfaces.items()
-        }
+        self.interfaces = {**host.interfaces}
+
+        log.debug(overrides)
+
+
+
         if 'interfaces' in overrides:
-            interfaces = {}
-            for shorthand in overrides:
-                matches = self.env.walk_get_matches(
-                    shorthand, resource_types=['interface']
-                )
-                interfaces.update({
-                    match_iface.fqn: self.interfaces[match_iface.fqn]
-                    for match_iface in matches.items()
-                    if match_interface.fqn in self.interfaces
-                })
-            self.interfaces = interfaces
-            del overrides['interfaces']
+            self.interfaces = self._get_spec_interfaces(
+                overrides['interfaces']
+            )
+        elif 'interfaces' in service.spec:
+            self.interfaces = self._get_spec_interfaces(
+                service.spec['interfaces']
+            )
+
+        log.debug(f"Service Interfaces: {self.interfaces}")
 
         #self.networks = 
         self.services = {self.service.fqn: self.service}  # static
@@ -211,7 +364,7 @@ class ServiceInstance(Resource):
 
 
         # Other attributes
-        self.spec_var_ignores.extend(['mounts'])
+        self.spec_var_ignores.extend(['mounts', 'interfaces', 'ports'])
         self.spec.update(service.vars)
         self.spec.update(overrides)
         # self.extra_vars.update(service.vars)
@@ -220,10 +373,10 @@ class ServiceInstance(Resource):
 
 
         # Override service default ports
-        self.ports = { name: num for name, num in service.ports.items() }
-        if 'ports' in overrides:
-            self.ports.update(overrides['ports'])
-            del overrides['ports']
+        # self.ports = { name: num for name, num in service.ports.items() }
+        # if 'ports' in overrides:
+        #     self.ports.update(overrides['ports'])
+        #     #del overrides['ports']
 
         # 
 
@@ -235,16 +388,54 @@ class ServiceInstance(Resource):
 
 
 
-        log.debug(f"    Data: {json.dumps(self.serialized, indent=4)}")
+        #log.debug(f"    Data: {json.dumps(self.serialized, indent=4)}")
 
-    @cached_property
+    @property
     def extra_vars(self):
 
         extra_vars = {}
-        extra_vars['ports'] = self.ports
+        extra_vars.update({
+            'ports': self.ports,
+            'interfaces': [ iface.network.network.name for iface in self.interfaces.values() ]
+            #     iface.network.name
+            #     for iface in self.interfaces.values()
+            # ]
+        })
         #extra_vars.update(self.)
 
         return extra_vars
+
+    @property
+    def ports(self):
+
+        if self.port_overrides in [None, {}, []]:
+            return {}
+        elif self.port_overrides == False:
+            return { name: num for name, num in self.service.ports.items() }
+        elif type(self.port_overrides) == dict:
+            return self.port_overrides
+        elif type(self.port_overrides) == list:
+            return {
+                name: num for name, num
+                in self.service.ports.items()
+                if name in self.port_overrides
+            }
+
+    @property
+    def networks(self):
+
+        return {
+            iface.network.network.fqn: iface.network.network
+            for iface in self.interfaces.values()
+        }
+
+
+    @property
+    def ifaces_by_net_fqn(self):
+        return {
+            iface.network.network.fqn: iface
+            for iface in self.host.interfaces.values()
+        }
 
 
     def _get_extra_serial_data(self):
@@ -255,3 +446,21 @@ class ServiceInstance(Resource):
             'interfaces': str(self.interfaces),
             'ports': self.ports
         }
+
+
+    def _get_spec_interfaces(self, ifaces_spec):
+        interfaces = {}
+        if not ifaces_spec:
+            return interfaces
+
+
+        for shorthand in ifaces_spec:
+            matches = self.env.walk_get_matches(
+                shorthand, resource_types=['network']
+            )
+            for match_net in matches.values():
+                if match_net.fqn not in self.ifaces_by_net_fqn:
+                    continue
+                iface = self.ifaces_by_net_fqn[match_net.fqn]
+                interfaces[iface.fqn] = iface
+        return interfaces

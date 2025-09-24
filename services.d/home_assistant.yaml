@@ -1,0 +1,14 @@
+---
+description: Home Assistant
+
+ports:
+    primary: 8123
+
+# metrics:
+
+base_dir: /var/lib/home-assistant
+service_user_name: home-assistant
+service_user_uid: 8123
+
+allows:
+    svc.prometheus:

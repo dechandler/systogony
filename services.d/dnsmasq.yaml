@@ -1,0 +1,7 @@
+---
+ports:
+    dns: 53
+    dns_udp: udp/53
+    dhcp: 67
+
+base_dir: /var/lib/dnsmasq

@@ -13,7 +13,12 @@ from .host import Host, Interface
 from .network import Network
 from .services import Service, ServiceInstance
 
-from .exceptions import BlueprintLoaderError, NonMatchingPathSignal
+from .exceptions import (
+    BlueprintLoaderError,
+    NonMatchingPathSignal,
+    MissingServiceError,
+    NotReadySignal
+)
 
 
 log = logging.getLogger("systogony")
@@ -24,102 +29,56 @@ class SystogonyEnvironment:
     def __init__(self, subdir):
 
         self.blueprint = self.load_blueprints(subdir)
+        self.svc_defaults = self.load_service_defaults()
 
-
-
-
-        #self.resources = {}
-        self.hosts = {}
-        self.interfaces = {}
-        self.networks = {}
-        self.services = {}
-        self.service_instances = {}
-
-        self.acls = {}
+        log.debug(self.svc_defaults)
 
         # Index of resources by base name
         self.names = defaultdict(list)
 
+        (
+            self.hosts, self.host_groups,
+            self.networks, self.interfaces,
+            self.services, self.service_instances,
+            self.acls
+        ) = {}, {}, {}, {}, {}, {}, {}
 
-        # Create host objects
-        self.host_groups = defaultdict(list)
-        for host_name, host_spec in self.blueprint['hosts'].items():
-            host_spec['name'] = host_name
-            host = Host(self, host_spec)
-            fqn = tuple(host.fqn)
-            
-            self.hosts[fqn] = host
-            for group_name in host.groups:
-                self.host_groups[group_name].append(host)
 
-        for group_name, host_list in self.host_groups.items():
-            self.host_groups[group_name] = sorted(host_list)
+        #self.resources = {}
+        self.hosts, self.host_groups = self._get_hosts()
+        self.networks = self._get_networks()
+        self._populate_interfaces()
+        self.services = self._get_services()
+        self._populate_service_instances()
 
-            # for iface in host.interfaces.values():
-
-        # Generate WAN pseudo-network
-        self.networks[(('network', 'wan'),)] = Network(
-            self, {'name': "wan", 'type': "wan", 'cidr': "0.0.0.0/0"}
-        )
-
-        # Create top level network objects
-        for net_name, net_spec in self.blueprint['networks'].items():
-            net_spec['name'] = net_name
-            net = Network(self, net_spec)
-            self.networks[net.fqn] = net
-
-            for subnet in net.get_descendents(types=['networks']):
-                self.networks[subnet.fqn] = subnet
+        self.acls = {}
 
 
 
-        # Generate interfaces to connect host to network
-        for host in self.hosts.values():
-            host.add_interfaces()
+
+        # for iface in host.interfaces.values():
 
 
-        """
-        # Generate services
-        for svc_name, svc_bp in self.blueprint['services'].items():
-            svc_bp['name'] = svc_name
-            self.services[svc_name] = Service(self, svc_bp)
 
-        # Loop over services until all are resolved
-        # since services can reference each other
-        pass_num = 0
-        max_passes = 10
-        while pass_num < max_passes:
-            pass_num += 1
-            log.debug(f"Services populate hosts pass {pass_num}")
 
-            for service in self.services.values():
-                service.populate_hosts()
 
-            for service in self.services.values():
-                if not service.hosts_complete:
-                    break
-            else:  # Services are complete
-                break
-        else:
-            # Hosts shorthand did not resolve for all service definitions
-            # Could be malformed shorthand or circular definition
-            raise(BlueprintLoaderError(' '.join([
-                "Error loading service hosts:",
-                json.dumps([
-                    svc.fqn for svc in self.services.values()
-                    if not svc.hosts_complete
-                ])
-            ])))
-        """
+
+        # Load service defaults
+
+
+
+        # for service in self.services.values():
+        #     service.get_rules()
+
 
         # Resolve shorthands in service allow/access
         # for service in self.services.values():
         #     service.apply_rules()
 
 
-        # Generate acls
-        # for resource in self.resources.values():
-        #     resource.gen_acls()
+        # # Generate acls
+        for resource in self.resources.values():
+            resource.gen_acls()
 
 
     def __str__(self):
@@ -148,11 +107,14 @@ class SystogonyEnvironment:
             for host in self.hosts.values()
         }
         env_hostvars.update({
-            network.metahost_name: network.vars
+            f"net_{network.short_fqn_str}": network.vars
             for network in self.networks.values()
             if network.net_type != "isolated"
         })
-
+        env_hostvars.update({
+            f"svc_{service.short_fqn_str}": {}  # service.vars
+            for service in self.services.values()
+        })
         return env_hostvars
 
 
@@ -169,13 +131,95 @@ class SystogonyEnvironment:
         for network in self.networks.values():
             if network.net_type == "isolated":
                 continue
-            groups["network_metahost"].append(network.metahost_name)
-            groups[f"net_{network.short_fqn_str}"] = [
+            meta_name = f"net_{network.short_fqn_str}"
+            if meta_name in groups['network_metahosts']:
+                continue
+            groups["network_metahosts"].append(meta_name)
+            groups[meta_name] = [
                 host.name for host in network.hosts.values()
+            ]
+
+        for service in self.services.values():
+            meta_name = f"svc_{service.short_fqn_str}"
+            if meta_name in groups["service_metahosts"]:
+                continue
+            groups["service_metahosts"].append(meta_name)
+            groups[meta_name] = [
+                inst.host.name for inst in service.service_instances.values()
             ]
 
         return groups
 
+    def _get_hosts(self):
+
+        hosts = {}
+        host_groups = defaultdict(list)
+
+        for host_name, host_spec in self.blueprint['hosts'].items():
+            host_spec = {} if host_spec is None else host_spec
+            host_spec['name'] = host_name
+            host = Host(self, host_spec)
+            fqn = tuple(host.fqn)
+
+            hosts[fqn] = host
+            for group_name in host.groups:
+                host_groups[group_name].append(host)
+
+        for group_name, host_list in self.host_groups.items():
+            host_groups[group_name] = sorted(host_list)
+
+        return hosts, host_groups
+
+
+    def _get_networks(self):
+
+        networks = {}
+
+        # Generate WAN pseudo-network
+        networks[(('network', 'wan'),)] = Network(
+            self, {'name': "wan", 'type': "wan", 'cidr': "0.0.0.0/0"}
+        )
+
+        # Create top level network objects
+        for net_name, net_spec in self.blueprint['networks'].items():
+            net_spec['name'] = net_name
+            net = Network(self, net_spec)
+            networks[net.fqn] = net
+
+            for subnet in net.get_descendents(types=['networks']):
+                networks[subnet.fqn] = subnet
+
+        return networks
+
+    def _populate_interfaces(self):
+        # Generate interfaces to connect host to network
+        for host in self.hosts.values():
+            host.add_interfaces()
+
+    def _get_services(self):
+        services = {}
+        for svc_name, svc_bp in self.blueprint['services'].items():
+            svc_bp['name'] = svc_name
+            services[('service', svc_name)] = Service(self, svc_bp)
+        return services
+
+    def _populate_service_instances(self):
+        # Populate services
+        prev_populated_services_len = -1
+        populated_services = []
+        while (
+            len(populated_services) < len(self.services)
+            and len(populated_services) != prev_populated_services_len
+        ):
+            prev_populated_services_len = len(populated_services)
+            for svc in self.services.values():
+                if svc.hosts_complete:
+                    continue
+                try:
+                    svc.populate_hosts()
+                except NotReadySignal:
+                    continue
+                populated_services.append(svc.name)
 
     def _get_group_for_network(self, network):
 
@@ -186,6 +230,15 @@ class SystogonyEnvironment:
             gvars['rules'] = network.rules
 
         return name, hosts, gvars
+
+
+    def gen_acl(self, origin, acl_spec, sources, destinations):
+        """
+
+
+        Called from Resource._gen_acls_by_spec_type
+        """
+        Acl(self, origin, acl_spec, sources, destinations)
 
 
     @property
@@ -213,10 +266,6 @@ class SystogonyEnvironment:
         }
         registries[resource.resource_type][resource.fqn] = resource
 
-    def gen_acl(self, acl_spec, sources, destinations):
-
-        Acl(self, acl_spec, sources, destinations)
-
 
     def resolve_to_rtype(
         self, shorthand, source_rtype_priorities, target_rtype
@@ -238,7 +287,10 @@ class SystogonyEnvironment:
         
         targets = {}
         for match in matches:
-            targets.update(match.__getattribute__(target_rtype))
+            log.debug(f"Getting {target_rtype} for {match.fqn}")
+            match_rtypes = match.__getattribute__(target_rtype)
+            log.debug(f"    {match_rtypes}")
+            targets.update(match_rtypes)
 
         return targets
 
@@ -270,13 +322,13 @@ class SystogonyEnvironment:
             resource_types = [
                 'network', 'service', 'host', 'interface', 'service_instance'
             ]
-        names_out = {
-            name: [
-                r.serialized
-                for r in resources
-            ]
-            for name, resources in self.names.items()
-        }
+        # names_out = {
+        #     name: [
+        #         r.serialized
+        #         for r in resources
+        #     ]
+        #     for name, resources in self.names.items()
+        # }
         log.debug(f"Shorthand Lookup (walk_get_matches):")
         log.debug(f"  Shorthand: {shorthand_str}")
         log.debug(f"  Resource types: {str(resource_types)}")
@@ -303,6 +355,70 @@ class SystogonyEnvironment:
         return matches
 
 
+
+    def load_service_defaults(self):
+
+        raw_defaults = {}
+        defaults = {}
+        resolved = []
+
+        defaults_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "services.d"
+        )
+        log.debug(f"Svc defaults directory: {defaults_dir}")
+        for root, dirs, files in os.walk(defaults_dir):
+            for f in files:
+                svc_name, extension = os.path.splitext(f)
+                if extension != ".yaml":
+                    continue
+                path = os.path.join(root, f)
+                try:
+                    svc_vars = self._load(path)
+                except BlueprintLoaderError:
+                    log.warning(f"yaml file in services.d not parsing: {path}")
+                    continue
+                if svc_vars.get('service') in [svc_name, None]:
+                    svc_vars['service'] = svc_name
+                    defaults[svc_name] = svc_vars
+                    resolved.append(svc_name)
+                raw_defaults[svc_name] = svc_vars
+
+        log.debug(f"Resolved service defaults: {resolved}")
+        # Resolve services iteratively until complete or unchanged
+        prev_resolved_len = -1
+        while (
+            len(resolved) < len(raw_defaults)
+            and len(resolved) != prev_resolved_len
+        ):
+            prev_resolved_len = len(defaults)
+
+            for svc_name, svc_vars in defaults.items():
+                if svc_name in defaults:
+                    continue
+
+                # Load defaults from parent service
+                parent_svc_name = svc_vars['service']
+                try:
+                    parent_vars = {**defaults[parent_svc_name]}
+                except KeyError:
+                    raise MissingServiceError(f"Missing from service.d: {parent_service} ({svc_name}.yaml)")
+
+                # Update service vars with parent defaults
+                del svc_vars['service']
+                parent_vars.update(svc_vars)
+                defaults[svc_name] = parent_vars
+
+                # Mark complete if resolved
+                if parent_vars['service'] == parent_svc_name:
+                    resolved.append(parent_svc_name)
+
+        if len(resolved) < len(raw_defaults):
+            log.warn(f"Unresolved services: {set(defaults) - set(resolved)}")
+
+        return defaults
+
+
     def load_blueprints(self, subdir):
 
         bp_dir = os.path.join(
@@ -320,7 +436,7 @@ class SystogonyEnvironment:
         try:
             with open(path) as fh:
                 data = yaml.safe_load(fh)
-        except exception as e: #(
+        except Exception as e: #(
         #         KeyError, TypeError, UnicodeDecodeError,
         #         yaml.scanner.ScannerError, yaml.parser.ParserError
         # ):

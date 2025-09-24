@@ -1,0 +1,9 @@
+---
+description: Prometheus Monitoring
+
+ports:
+    primary: 9090
+
+monitored_network: my-network
+base_dir: /var/lib/prometheus
+service_user_uid: 9090

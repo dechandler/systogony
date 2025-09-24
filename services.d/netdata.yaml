@@ -1,0 +1,12 @@
+---
+description: NetData Server Metrics
+
+ports:
+    metrics: 19999
+
+metrics:
+    port: metrics
+    uri: /api/v1/allmetrics
+    params:
+        format: ["prometheus"]
+        honor_labels: [true]

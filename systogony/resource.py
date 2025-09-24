@@ -32,7 +32,12 @@ class Resource:
         # self.interfaces = {self.fqn: self}
         # self.networks = {network.fqn: network}
         # self.services = {}  # connected via service_instances
-
+        self.acls = {
+            'owned': {},
+            'ingress': {},
+            'egress': {},
+            'forward': {}
+        }
 
         self.spec_var_ignores = [
             'hosts', 'interfaces', 'allows', 'access', 'restrictions', 'name'
@@ -42,8 +47,8 @@ class Resource:
         self.parent = None
         self.children = {}
         self.network = None
-        self.ports = None
-        self.rules = {'input': [], 'output': [], 'forward': []}
+        #self.ports = None
+        #self.rules = {'input': [], 'output': [], 'forward': []}
 
 
         self.parents = []
@@ -79,25 +84,36 @@ class Resource:
     def _get_extra_serial_data(self):
         return {}
 
-    def _fqn_str_list(self, resources_dict):
+    # def _fqn_str_list(self, resources_dict):
 
-        return [ str(resource.fqn) for resource in resources_dict.values() ]
+    #     return [ str(resource.fqn) for resource in resources_dict.values() ]
 
 
-    def _fqns_strs(self, targets):
+    # def _fqns_strs(self, targets):
 
-        items = []
-        for target in targets:
-            target_items = []
-            for pair in target:
-                target_items.extend(pair)
-            items.append('.'.join(target_items))
-        return items
+    #     items = []
+    #     for target in targets:
+    #         target_items = []
+    #         for pair in target:
+    #             target_items.extend(pair)
+    #         items.append('.'.join(target_items))
+    #     return items
 
     @property
     def short_fqn_str(self):
 
         return '-'.join([ pair[1] for pair in self.fqn ])
+
+    @property
+    def addresses(self):
+        addrs = {}
+        for iface in self.interfaces.values():
+            net = iface.network.network
+            if net.fqn not in addrs:
+                addrs[net.fqn] = []
+            for iface_addresses in iface.addresses.values():
+                addrs[net.fqn].extend(iface_addresses)
+        return addrs
 
     @cached_property
     def vars(self):
@@ -112,21 +128,28 @@ class Resource:
     def extra_vars(self):
         return {}
 
+
     def gen_acls(self):
+        """
+        Creates Acl objects that associate themselves with related objects
+
+
+        """
+        # Called from SystogonyEnvironment.__init__()
 
         for acl_spec_type in ['allows', 'access']:
-            self._gen_acls_by_spec_type(acl_spec_type)
+            if self.spec.get(acl_spec_type):
+                self._gen_acls_by_spec_type(acl_spec_type)
 
     def _gen_acls_by_spec_type(self, acl_spec_type):
-
         """
         acl types: 'allows', 'access'
 
+
         """
+        # Called from self.gen_acls()
 
-        if not self.spec.get(acl_spec_type):
-            return
-
+        # Get matches for 
         matches = {}
         for shorthand, overrides in self.spec[acl_spec_type].items():
             matches.update({
@@ -138,7 +161,7 @@ class Resource:
             })
 
         owner = {self.fqn: self}
-        owner_specs = {}
+        owner_specs = self.vars
         targets = {
             fqn: target['target'] for fqn, target in matches.items()
         }
@@ -156,10 +179,10 @@ class Resource:
             acl_spec['destination_specs'] = target_specs
 
 
-        owner_str = '-'.join(self._fqns_strs([*owner]))
-        targets_str = '-'.join(self._fqns_strs([*targets]))
-        src_str = ', '.join(self._fqns_strs([*sources]))
-        dest_str = ', '.join(self._fqns_strs([*destinations]))
+        owner_str = owner[self.fqn].name
+        targets_str = '-'.join([t.name for t in targets.values()])
+        src_str = ', '.join([s.name for s in sources.values()])
+        dest_str = ', '.join([s.name for s in destinations.values()])
 
         acl_spec.update({
             'name': "_".join([owner_str, acl_spec_type, targets_str]),
@@ -170,94 +193,18 @@ class Resource:
             ]),
             'ports': self.ports
         })
-
-        self.env.gen_acl(acl_spec, sources, destinations)
-
-
-    # def gen_defined_acls(self, ):
+        self.env.gen_acl(self, acl_spec, sources, destinations)
 
 
+    def _fqns_strs(self, targets):
 
-
-    #     acl_kwargs = {}
-    #     {
-    #         'description': 
-    #         'sources':
-    #         'destinations':
-    #         'ports':
-    #     }
-
-    #     if 
-
-    #         for dest in matches.values():
-    #             if 'description' not in overrides:
-    #                 overrides['description'] = 
-
-
-
-    #             destinations[dest.fqn] = {
-    #                 'target': dest,
-    #                 'overrides': overrides,
-    #                 'description': (
-    #                     overrides.get('description')
-    #                     or
-    #                 ) 
-    #             }
-
-    #         description=f"{'.'.join(self.fqn)} access to {', '.join([destinations])}",
-    #         sources={self.fqn: {'target': self, 'overrides': {}}},
-    #         destinations=destinations,
-    #         ports=self.ports
-
-
-
-    # def get_access_acls(self, ):
-
-    #     if not self.spec.get('access'):
-    #         return
-
-    #     fqn_str = lambda fqn, major, minor: major.join([
-    #         minor.join(resource) for resource in fqn
-    #     ])
-
-    #     destinations = {}
-    #     for shorthand, overrides in self.spec['access'].items():
-    #         matches = self.env.walk_get_matches(shorthand)
-    #         for dest in matches.values():
-    #             if 'description' not in overrides:
-    #                 overrides['description'] = 
-
-
-
-    #             destinations[dest.fqn] = {
-    #                 'target': dest,
-    #                 'overrides': overrides,
-    #                 'description': (
-    #                     overrides.get('description')
-    #                     or
-    #                 ) 
-    #             }
-
-
-    #     name_str = fqn_str(self.fqn, '_', '-')
-    #     desc_src_str = fqn_str(self.fqn, '.', '.')
-    #     desc_dest_str = ', '.join([
-    #         fqn_str(dest.fqn, '.', '.') for dest in destinations
-    #     ])
-
-    #     Acl(
-    #         self.env, f"{name_str}_access",
-    #         description=f"{'.'.join(self.fqn)} access to {', '.join([destinations])}",
-    #         sources={self.fqn: {'target': self, 'overrides': {}}},
-    #         destinations=destinations,
-    #         ports=self.ports
-    #     )
-
-    # def get_(self):
-
-
-    #     for parent in self.parents:
-
+        items = []
+        for target in targets:
+            target_items = []
+            for pair in target:
+                target_items.extend(pair)
+            items.append('.'.join(target_items))
+        return items
 
 
     def walk_matches(self, shorthand, resource_types=None):

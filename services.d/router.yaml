@@ -1,0 +1,5 @@
+---
+ports:
+    dns: 53  # dnsmasq
+    dns_udp: udp/53  # dnsmasq
+    dhcp: 67  # dnsmasq

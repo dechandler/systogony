@@ -1,0 +1,12 @@
+---
+ports:
+    http: 8384
+    #data: 22000
+    #data_udp: udp/22000
+
+expose_http: True
+
+service_user: True
+base_dir: /var/lib/syncthing
+service_user_name: syncthing
+service_user_uid: 8384
