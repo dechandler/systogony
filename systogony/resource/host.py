@@ -7,7 +7,7 @@ from collections import defaultdict
 from functools import cached_property
 
 from .resource import Resource
-from .exceptions import BlueprintLoaderError
+from ..exceptions import BlueprintLoaderError
 
 
 log = logging.getLogger("systogony")

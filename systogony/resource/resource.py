@@ -3,7 +3,7 @@ import logging
 
 from functools import cached_property
 
-from .exceptions import NonMatchingPathSignal
+from ..exceptions import NonMatchingPathSignal
 
 log = logging.getLogger("systogony")
 

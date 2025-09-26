@@ -8,10 +8,7 @@ from functools import cached_property
 
 import yaml
 
-from .acls import Acl
-from .host import Host, Interface
-from .network import Network
-from .services import Service, ServiceInstance
+from .resource import Acl, Host, Interface, Network, Service, ServiceInstance
 
 from .exceptions import (
     BlueprintLoaderError,
@@ -26,9 +23,11 @@ log = logging.getLogger("systogony")
 
 class SystogonyEnvironment:
 
-    def __init__(self, subdir):
+    def __init__(self, config):
 
-        self.blueprint = self.load_blueprints(subdir)
+        self.config = config
+
+        self.blueprint = self.load_blueprints(config['blueprint_path'])
         self.svc_defaults = self.load_service_defaults()
 
         log.debug(self.svc_defaults)
@@ -54,31 +53,9 @@ class SystogonyEnvironment:
         self.acls = {}
 
 
-
-
-        # for iface in host.interfaces.values():
-
-
-
-
-
-
-        # Load service defaults
-
-
-
-        # for service in self.services.values():
-        #     service.get_rules()
-
-
-        # Resolve shorthands in service allow/access
-        # for service in self.services.values():
-        #     service.apply_rules()
-
-
         # # Generate acls
-        for resource in self.resources.values():
-            resource.gen_acls()
+        # for resource in self.resources.values():
+        #     resource.gen_acls()
 
 
     def __str__(self):
@@ -419,11 +396,9 @@ class SystogonyEnvironment:
         return defaults
 
 
-    def load_blueprints(self, subdir):
+    def load_blueprints(self, bp_dir):
 
-        bp_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), subdir
-        )
+        bp_dir = os.path.expanduser(bp_dir)
         return {
             'hosts': self._load(os.path.join(bp_dir, "hosts.yaml")),
             'networks': self._load(os.path.join(bp_dir, "networks.yaml")),
@@ -436,11 +411,12 @@ class SystogonyEnvironment:
         try:
             with open(path) as fh:
                 data = yaml.safe_load(fh)
+                log.debug(json.dumps(data, indent=4))
         except Exception as e: #(
         #         KeyError, TypeError, UnicodeDecodeError,
         #         yaml.scanner.ScannerError, yaml.parser.ParserError
         # ):
-            print(e)
+            log.error(f"Not a YAML file: {path}")
             raise BlueprintLoaderError(f"Not a YAML file: {path}")
 
         return data

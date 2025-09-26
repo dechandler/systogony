@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict
 from functools import cached_property
 
 from .resource import Resource
-from .exceptions import BlueprintLoaderError, MissingServiceError, NotReadySignal
+from ..exceptions import BlueprintLoaderError, MissingServiceError, NotReadySignal
 
 log = logging.getLogger("systogony")
 
