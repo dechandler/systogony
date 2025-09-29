@@ -21,9 +21,7 @@ class PrintCli(CliInterface):
 
     def __init__(self, config):
 
-        log.debug("Initializing PrintCli")
-
-        self.config = config
+        super().__init__(config)
 
         self.operations = {
             'ansible': {

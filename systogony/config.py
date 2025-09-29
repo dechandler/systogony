@@ -35,6 +35,9 @@ class SystogonyConfig:
             'ansible_dir': os.path.abspath(
                 os.path.join(os.path.dirname(__file__), "../ansible")
             ),
+            'tf_env_dir': os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "../terraform")
+            ),
             'log_dir': "~/.config/systogony/log",
             'log_level': "warning",
             'inventory_tmp_file': "~/.config/systogony/.inventory.json",
