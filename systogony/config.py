@@ -151,6 +151,7 @@ class SystogonyConfig:
             'env_name': "default",
             'blueprint_path': os.path.join(self.config_dir, "blueprint"),
             'use_cache': False,
+            'force_cache_regen': False,
 
             'tf_env_dir': os.path.join(self.config_dir, "terraform"),
 

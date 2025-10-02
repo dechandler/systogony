@@ -43,7 +43,7 @@ class SystogonyApi:
 
     def get_cache(self, structure):
 
-        if not self.config['use_cache']:
+        if self.config['force_cache_regen'] or not self.config['use_cache']:
             log.debug(f"Skipping cache load, as configured")
             return None
 
@@ -53,6 +53,7 @@ class SystogonyApi:
         if not os.path.exists(cache_path):
             log.debug(f"No cache, generating new")
             return False
+
         cache_timestamp = os.path.getmtime(cache_path)
         for root, dirs, files in os.walk(self.config['blueprint_path']):
             for fname in files:
@@ -144,6 +145,8 @@ class SystogonyApi:
         # Process hosts
         for hostname, hvars in hostvars.items():
 
+            log.debug(hvars)
+
             # Add host system to groups
             all_group.append(hostname)
             resource_type_groups['systems'].append(hostname)
@@ -155,6 +158,15 @@ class SystogonyApi:
             # Groups specified for host in blueprint
             for group in hvars.get('groups', []):
                 blueprint_groups[group].append(hostname)
+
+            # Differentiate between managed and unmanaged hosts
+            supported_oses = [
+                'centos', 'alma', 'fedora', 'atomic', 'debian', 'ubuntu'
+            ]
+            if hvars.get('os') in supported_oses or hostname == "localhost":
+                blueprint_groups['managed'].append(hostname)
+            else:
+                blueprint_groups['unmanaged'].append(hostname)
 
             # System host may get unshared variables later
             host_vars[hostname] = {}
@@ -201,6 +213,9 @@ class SystogonyApi:
         group_hosts.update(system_login_groups)
         group_hosts.update(svc_groups)
         group_hosts.update(resource_type_groups)
+        group_hosts.update(blueprint_groups)
+
+
 
         # Set group variables
         gvars = {'all': env.blueprint['vars'] or {}}
