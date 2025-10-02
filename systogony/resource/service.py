@@ -121,30 +121,33 @@ class Service(Resource):
     def var_inheritance(self):
 
         parent = self.spec.get('service')
+        log.debug(f"{self.name} inherits from {parent}")
 
         if not parent:
+            self.spec['service'] = self.name
             if self.name in self.env.svc_defaults:
                 inherited = self.env.svc_defaults[self.name]
             else:
                 inherited = {}
 
-        elif parent in self.env.blueprint['services']:
-            inherited = self.env.services[('service', parent)].vars
-
         elif parent in self.env.svc_defaults:
+            self.spec['service'] = parent
             inherited = self.env.svc_defaults[parent]
 
+        elif parent in self.env.blueprint['services']:
+            if parent == self.name:
+                inherited = {}
+            else:
+                inherited = self.env.services[('service', parent)].vars
         else:
             raise MissingServiceError("")
 
-        log.debug(f"Inheriting {parent} vars for {self.name}: {inherited}")
+        log.debug(f"{self.name} inherits from {parent}: {inherited}")
 
         return {
             k: v for k, v
             in inherited.items()
         }
-
-
 
     @property
     def vars(self):
@@ -154,10 +157,11 @@ class Service(Resource):
             k: v for k, v
             in self.var_inheritance.items()
         }
+        log.debug(f"  Inheriting: {rvars}")
         rvars.update(self.spec)
+
         return {
-            k: v for k, v
-            in rvars.items()
+            k: v for k, v in rvars.items()
             if k not in self.spec_var_ignores
         }
 
