@@ -150,6 +150,8 @@ class SystogonyConfig:
             'default_env': None,
             'env_name': "default",
             'blueprint_path': os.path.join(self.config_dir, "blueprint"),
+            'use_cache': False,
+
             'tf_env_dir': os.path.join(self.config_dir, "terraform"),
 
             'ansible_dir': os.path.abspath(

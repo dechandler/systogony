@@ -1,7 +1,9 @@
 """
 
 """
+import json
 import logging
+import os
 import socket
 
 from collections import defaultdict
@@ -17,7 +19,9 @@ class SystogonyApi:
 
     def __init__(self, config):
 
-        self.env = Environment(config)
+        self.config = config
+
+
 
     @cached_property
     def hostvars(self):
@@ -36,6 +40,52 @@ class SystogonyApi:
         #     for service in self.env.services.values()
         # })
         return env_hostvars
+
+    def get_cache(self, structure):
+
+        if not self.config['use_cache']:
+            log.debug(f"Skipping cache load, as configured")
+            return None
+
+        cache_path = os.path.join(
+            self.config['blueprint_path'], f".cache-{structure}.json"
+        )
+        if not os.path.exists(cache_path):
+            log.debug(f"No cache, generating new")
+            return False
+        cache_timestamp = os.path.getmtime(cache_path)
+        for root, dirs, files in os.walk(self.config['blueprint_path']):
+            for fname in files:
+                path = os.path.join(root, fname)
+                if os.path.getmtime(path) > cache_timestamp:
+                    log.debug(f"Updated blueprint {fname}, regenerating cache")
+                    return False
+
+        with open(cache_path) as fh:
+            cache = fh.read()
+        try:
+            cache = json.loads(cache)
+            log.info("No updates to blueprint, using cache")
+        except json.decoder.JSONDecodeError:
+            log.info("Cache failed to load, regenerating")
+            return False
+
+
+
+    def write_cache(self, data, structure):
+
+        if not self.config['use_cache']:
+            return None
+
+        cache_path = os.path.join(
+            self.config['blueprint_path'], f".cache-{structure}.json"
+        )
+        with open(cache_path, 'w') as fh:
+            json.dump(data, fh, indent=4)
+
+        log.info(f"Cache written to {cache_path}")
+
+
 
     @property
     def ansible_inventory(self):
@@ -58,8 +108,17 @@ class SystogonyApi:
         Generate `all` group, as well as system and service groups
 
         """
+
+        cache = self.get_cache('ansible_inventory')
+        if cache:
+            return cache
+
+        env = Environment(self.config)
         hostvars = defaultdict(dict)
-        hostvars.update(self.hostvars)
+        hostvars.update({
+            host.name: host.vars
+            for host in env.hosts.values()
+        })
 
         # Set local connection for localhost and local hostname
         hostvars['localhost']['ansible_connection'] = "local"
@@ -144,11 +203,11 @@ class SystogonyApi:
         group_hosts.update(resource_type_groups)
 
         # Set group variables
-        gvars = {'all': self.env.blueprint['vars'] or {}}
+        gvars = {'all': env.blueprint['vars'] or {}}
         gvars.update(system_group_vars)
 
         # Construct and return properly formatted inventory
-        return {
+        inventory = {
             '_meta': {
                 'hostvars': host_vars
             },
@@ -161,3 +220,7 @@ class SystogonyApi:
             }
 
         }
+
+        self.write_cache(inventory, 'ansible_inventory')
+
+        return inventory
