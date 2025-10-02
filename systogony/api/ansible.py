@@ -77,27 +77,30 @@ class AnsibleApi(ApiInterface):
         for hostname, hvars in hostvars.items():
 
             log.debug(hvars)
+            supported_oses = [
+                'centos', 'alma', 'fedora', 'atomic', 'debian', 'ubuntu'
+            ]
+            managed = (  # bool
+                hvars.get('os') in supported_oses or hostname == "localhost"
+            )
+            managed_name = 'managed' if managed else 'unmanaged'
 
-            # Add host system to groups
+            # Differentiate between managed and unmanaged hosts
+            blueprint_groups[managed_name].append(hostname)
+
+            # Add host system to all and systems groups
             all_group.append(hostname)
             resource_type_groups['systems'].append(hostname)
 
             # Create login group and add host system
-            system_login_group = f"login_{hostname}"
-            system_login_groups[system_login_group].append(hostname)
+            if managed:
+                system_login_group = f"login_{hostname}"
+                system_login_groups[system_login_group].append(hostname)
 
             # Groups specified for host in blueprint
             for group in hvars.get('groups', []):
                 blueprint_groups[group].append(hostname)
 
-            # Differentiate between managed and unmanaged hosts
-            supported_oses = [
-                'centos', 'alma', 'fedora', 'atomic', 'debian', 'ubuntu'
-            ]
-            if hvars.get('os') in supported_oses or hostname == "localhost":
-                blueprint_groups['managed'].append(hostname)
-            else:
-                blueprint_groups['unmanaged'].append(hostname)
 
             # System host may get unshared variables later
             host_vars[hostname] = {}
@@ -112,7 +115,8 @@ class AnsibleApi(ApiInterface):
             hvars['ansible_host'] = hostname
 
             # Set cleaned hvars as the group vars for the shared login group
-            system_group_vars[system_login_group] = hvars
+            if managed:
+                system_group_vars[system_login_group] = hvars
 
             # For each service instance:
             #   - generate its associated service group
@@ -124,7 +128,7 @@ class AnsibleApi(ApiInterface):
             for svc_name, inst in service_instances.items():
                 inst['host'] = hostname
 
-                inst_name = f"{hostname}_{svc_name}"
+                inst_name = f"{hostname}_inst_{svc_name}"
                 svc_group = f"svc_{svc_name}"
 
                 # Add instance to all, and its resource type
@@ -134,7 +138,11 @@ class AnsibleApi(ApiInterface):
                 svc_groups[svc_group].append(inst_name)
 
                 # Add inst to system login group
-                system_login_groups[system_login_group].append(inst_name)
+                if managed:
+                    system_login_groups[system_login_group].append(inst_name)
+
+                blueprint_groups[managed_name].append(inst_name)
+
 
                 # Set instance vars
                 host_vars[inst_name] = inst
