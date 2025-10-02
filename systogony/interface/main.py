@@ -19,13 +19,14 @@ log = logging.getLogger("systogony")
 
 
 class MainCli(CliInterface):
+    """
+    In the main run of systogony, config is a custom class that
+    gives a quasai-dict interface, but a normal dict can be passed
+    in here. Necessary keys depends on the chosen operation.
+
+    """
 
     def __init__(self, config):
-
-        log.info(
-            f"Starting Systogony; PID: {os.getpid()}; Args: {sys.argv[1:]}"
-        )
-        log.debug(f"Run config: {json.dumps(dict(config.items()))}")
 
         super().__init__(config)
 

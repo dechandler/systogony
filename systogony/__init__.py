@@ -1,2 +1,2 @@
 
-from .environment import SystogonyEnvironment
+from .interface import SystogonyApi

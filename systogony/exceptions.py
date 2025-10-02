@@ -1,4 +1,9 @@
 
+class NoSuchEnvironmentError(Exception):
+    """
+
+    """
+
 class BlueprintLoaderError(Exception):
     """
 

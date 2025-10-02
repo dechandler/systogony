@@ -38,16 +38,16 @@ class CliInterface:
         )
 
         # Index operations to include aliases
-        subcommands = {}
+        _operations = {}
         for name, op in self.operations.items():
-            for op_name in op.get('aliases', []) + [name]:
-                subcommands[op_name] = {
+            for op_name in [name] + op.get('aliases', []):
+                _operations[op_name] = {
                     'name': name,
                     'handler': op['handler']
                 }
         log.debug(f"Operation aliases:")
-        for op_name, subcommand in subcommands.items():
-            log.debug(f"    {op_name}: {subcommand['name']}")
+        for alias, operation in _operations.items():
+            log.debug(f"    {alias}: {operation['name']}")
 
         # If there are no arguments, use no_args_operation
         if not args:
@@ -55,16 +55,22 @@ class CliInterface:
             log.debug(f"Defaulting to {self.no_args_operation}")
             args = [self.no_args_operation]
 
-        # If no subcommands match the first arg, use no_matching_args_operation
-        if args[0] not in subcommands:
-            log.debug(f"Next arg exists but is not a valid operaion: {args[0]}")
-            log.debug(f"Defaulting to {self.no_matching_args_operation}")
-            args.insert(0, self.no_matching_args_operation)
+        # Context-specific checks on arg progression
+        args, op_name, handler = self.extra_arg_checks(args)
 
-        # Remove operation from args and identify handler
-        selection = subcommands[args.pop(0)]
-        name, handler = selection['name'], selection['handler']
-        log.info(f"{str(self.__class__)} -> {name} with args: {args})")
+        if not op_name:
+            # If first arg matches no op_names or aliases,
+            # use no_matching_args_operation
+            if args[0] not in _operations:
+                log.debug(f"Next arg exists but is not a valid operaion: {args[0]}")
+                log.debug(f"Defaulting to {self.no_matching_args_operation}")
+                args.insert(0, self.no_matching_args_operation)
+
+            # Remove operation from args and identify handler
+            operation = _operations[args.pop(0)]
+            op_name, handler = operation['name'], operation['handler']
+
+        log.debug(f"Running {str(self.__class__)} -> {op_name} with args: {args})")
 
         # Run lambda handlers to initialize the object
         # and get the .handle_args() method 
@@ -73,6 +79,37 @@ class CliInterface:
 
         # Run handler, passing on the remaining args
         handler(args)
+
+    def extra_arg_checks(self, args):
+        """
+        CLI arg checks specific to Systogony
+
+        Returns modified args and handler
+
+        """
+        args, op_name, handler = self._arg_check_env_name(args)
+
+        return args, op_name, handler
+
+    def _arg_check_env_name(self, args):
+        """
+        If the first arg matches an environment name,
+        update config with the env config, then set
+        handler to rerun this stage
+
+        Returns modified args and handler
+
+        """
+        op_name, handler = None, None
+        if args[0] in self.config['environments']:
+            env_name = args.pop(0)
+            log.debug(f"Recognized environment name ({env_name})")
+            self.config.update(self.config['environments'][env_name])
+            self.config['env_name'] = env_name
+            handler = self.__class__(self.config).handle_args
+            op_name = "environment"
+
+        return args, op_name, handler
 
 
     def run_command(self, cmd, cwd):
@@ -116,5 +153,8 @@ class CliInterface:
             return
 
         # Default help message is constructed from self.operations
+        print(f"{str(self.__class__)} Operations:\n")
         for name, operation in self.operations.items():
-            print(f"  {name}:  {operation.get('help')}")
+            print(f"{name}:  {operation.get('help', '#TODO')}")
+            if 'aliases' in operation:
+                print(f"    Aliases: {operation['aliases']}")

@@ -157,7 +157,8 @@ class Resource:
                     'target': target,
                     'overrides': {**(overrides or {})},
                 }
-                for target in self.env.walk_get_matches(shorthand).values()
+                for target
+                in self.env.query.walk_get_matches(shorthand).values()
             })
 
         owner = {self.fqn: self}

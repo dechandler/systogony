@@ -60,7 +60,7 @@ class Service(Resource):
 
         ports = {
             name: num for name, num
-            in self.var_inheritance.get('ports', {}).items()
+            in (self.var_inheritance.get('ports') or {}).items()
         }
 
         if self.port_overrides == False:
@@ -72,73 +72,6 @@ class Service(Resource):
                 in ports.items()
                 if name in self.port_overrides
             }
-
-
-
-    # def get_rules(self):
-
-
-    #     allows = []
-    #     for shorthand, allow_spec in self.vars.get('allows', {}).items():
-
-    #         rtype, matches = self.env.get_priority_matches(
-    #             shorthand, ['networks', 'services', 'hosts']
-    #         )
-    #         allows.append({
-    #             'spec': allow_spec,
-    #             'sources': matches
-    #         })
-
-    #     interface_groups = f
-
-    #     port_groups = {}
-    #     for allow in allows:
-    #         ports_spec = allow['spec'].get('ports')
-    #         if ports_spec is False:
-    #             ports = {}
-    #         elif not ports_spec:
-    #             ports = {**self.ports}
-    #         elif type(ports_spec) == list:
-    #             ports = { k: v for k, v in self.ports if k in port_spec }
-    #         elif type(ports_spec) == dict:
-    #             ports = {**ports_spec}
-
-
-    #         for name, num in ports.items():
-    #             ports_key = set([name, num])
-    #             if ports_key not in port_groups:
-    #                 port_groups[ports_key] = []
-    #             port_groups[ports_key].append(allow)
-
-
-    #         ports_key = set(ports)
-    #         if ports_key not in port_groups:
-    #             port_groups[ports_key] = []
-    #         port_groups[ports_key].append(allow)
-
-    #         set(ports[port_name] for port_name in sorted(ports))
-
-
-    # def resolve_to_rtype(
-    #     self, shorthand, source_rtype_priorities, target_rtype
-    # ):
-
-    #         rtype, matches = self.env.get_priority_matches(
-    #             shorthand, ['network', 'host']
-    #         )
-    #         if matches:
-
-    #             if rtype == "network":
-
-
-
-    #         _, matches = self.env.get_priority_matches(
-    #             shorthand, ['service']
-    #         )
-    #         if matches:
-    #             for
-
-
 
 
 
@@ -232,7 +165,7 @@ class Service(Resource):
 
         for shorthand, overrides in self.spec.get('access', {}).items():
 
-            resolved_hosts = self.env.resolve_to_rtype(
+            resolved_hosts = self.env.query.resolve_to_rtype(
                 shorthand,
                 ['service', 'service_instance', 'host', 'network', 'interface'],
                 'hosts'
@@ -260,7 +193,7 @@ class Service(Resource):
         host_identifiers = {}
         for shorthand in self.spec.get('hosts', {}):
             try:
-                resolved_hosts = self.env.resolve_to_rtype(
+                resolved_hosts = self.env.query.resolve_to_rtype(
                     shorthand,
                     ['host', 'service_instance', 'service', 'network'],
                     'hosts'
@@ -455,7 +388,7 @@ class ServiceInstance(Resource):
 
 
         for shorthand in ifaces_spec:
-            matches = self.env.walk_get_matches(
+            matches = self.env.query.walk_get_matches(
                 shorthand, resource_types=['network']
             )
             for match_net in matches.values():
