@@ -14,7 +14,8 @@ from .exceptions import (
 
 log = logging.getLogger("systogony")
 
-def main():
+
+def _main():
 
     config = SystogonyConfig()
     config.configure_loggers()
@@ -22,14 +23,16 @@ def main():
     log.info("Starting Systogony")
     log.debug(f"  PID: {os.getpid()}")
     log.debug(f"  Args: {sys.argv[1:]}")
-    #log.debug(f"  Config: {json.dumps(config.config)}")
 
     config.flush_pre_log()
 
+    MainCli(config).handle_args(sys.argv[1:])
+
+
+def main():
 
     try:
-        MainCli(config).handle_args(sys.argv[1:])
-
+        _main()
     except BlueprintLoaderError:
         log.error("Exiting due to BlueprintLoaderError")
     except MissingServiceError:
