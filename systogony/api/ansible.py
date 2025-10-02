@@ -17,7 +17,7 @@ from ..environment import Environment
 log = logging.getLogger('systogony')
 
 
-class AnsibleApi(ApiInterface)
+class AnsibleApi(ApiInterface):
 
     @property
     def inventory(self):

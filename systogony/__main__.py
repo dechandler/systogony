@@ -5,7 +5,7 @@ import os
 import sys
 
 from .config import SystogonyConfig
-from .interface import MainCli
+from .cli import MainCli
 
 
 from .exceptions import (

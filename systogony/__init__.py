@@ -1,2 +1,4 @@
 
-from .interface import SystogonyApi
+from .config import SystogonyConfig
+
+from .api import AnsibleApi
