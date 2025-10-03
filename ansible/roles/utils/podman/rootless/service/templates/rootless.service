@@ -25,6 +25,10 @@ ExecStart=/usr/bin/podman \
             %}--userns=keep-id \
     {%    endif
 
+    %}{%  if SVC.uid | default('')
+            %}--user {{ SVC.uid }} \
+    {%    endif
+
     %}{%  if SVC.read_only | default('')
             %}--read-only \
     {%    endif
