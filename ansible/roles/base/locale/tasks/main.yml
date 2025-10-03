@@ -5,9 +5,7 @@
   dnf:
     name: glibc-langpack-en
   become: True
-  when: >
-    ['alma'] | group_match(group_names)
-
+  when: os in ['alma']
 
 
 - name: >

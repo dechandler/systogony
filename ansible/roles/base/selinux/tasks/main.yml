@@ -1,5 +1,7 @@
 ---
-- name: Install Python Libraries
+- name: >
+    main
+    : Install Python Libraries
   dnf:
     name:
       - policycoreutils-python-utils
