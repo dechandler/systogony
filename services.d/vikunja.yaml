@@ -1,0 +1,13 @@
+---
+description: Vikunja, fluffy to-do app
+
+ports:
+    primary: 3456
+
+metrics:
+    port: primary
+    uri: /api/v1/metrics
+
+service_user_name: vikunja
+service_user_id: 3456
+base_dir: /var/lib/vikunja
